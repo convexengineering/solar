@@ -19,7 +19,6 @@ from gpkitmodels.tools.summing_constraintset import summing_vars
 from gpfit.fit_constraintset import FitCS as FCS
 
 path = os.path.dirname(gassolar.environment.__file__)
-# path = basepath.replace(os.sep+"solar"+os.sep, os.sep+"environment"+os.sep)
 DF = pd.read_csv(path + os.sep + "windaltfitdata.csv")
 DFt = pd.read_csv(path + os.sep + "solar_twlightfit.csv")
 DFd = pd.read_csv(path + os.sep + "solar_dayfit.csv")

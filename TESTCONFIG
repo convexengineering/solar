@@ -1,0 +1,3 @@
+pip install : pandas, git+https://github.com/convexengineering/gassolar.git, https://github.com/convexengineering/gpfit.git
+gpkit-models branch : master
+skipsolvers : cvxopt
