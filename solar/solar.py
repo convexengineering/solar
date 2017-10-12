@@ -351,10 +351,10 @@ class Mission(Model):
 
 def test():
     " test model for continuous integration "
-    m = Mission(latitude=20)
+    m = Mission(latitude=11)
     m.cost = m["W_{total}"]
     m.solve()
-    m = Mission(latitude=20, sp=True)
+    m = Mission(latitude=11, sp=True)
     m.cost = m["W_{total}"]
     m.localsolve()
 
