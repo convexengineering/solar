@@ -142,8 +142,10 @@ class AircraftPerf(Model):
     def setup(self, static, state):
 
         self.wing = static.wing.flight_model(static.wing, state)
-        self.htail = static.empennage.htail.flight_model(state)
-        self.vtail = static.empennage.vtail.flight_model(state)
+        self.htail = static.empennage.htail.flight_model(static.empennage.htail,
+                                                         state)
+        self.vtail = static.empennage.vtail.flight_model(static.empennage.vtail,
+                                                         state)
         self.tailboom = static.empennage.tailboom.flight_model(state)
 
         self.flight_models = [self.wing, self.htail, self.vtail,
