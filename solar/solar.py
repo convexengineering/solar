@@ -39,7 +39,7 @@ class Aircraft(Model):
         loading = []
         if sp:
             tbstate = TailBoomState()
-            loading = TailBoomFlexibility(self.empennage.horizontaltail,
+            loading = TailBoomFlexibility(self.empennage.htail,
                                           self.empennage.tailboom,
                                           self.wing, tbstate)
 
@@ -53,7 +53,7 @@ class Aircraft(Model):
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
-            self.empennage.substitutions["AR_h"] = 5.0
+            self.empennage.htail.substitutions["AR"] = 5.0
             self.empennage.substitutions["m_h"] = 0.1
 
         constraints = [
@@ -65,9 +65,9 @@ class Aircraft(Model):
             self.solarcells["S"] <= self.wing["S"],
             self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]*self.wing["b"] >= (
                 self.battery["\\mathcal{V}"]),
-            self.empennage.horizontaltail["V_h"] <= (
-                self.empennage.horizontaltail["S"]
-                * self.empennage.horizontaltail["l_h"]/self.wing["S"]**2
+            self.empennage.htail["V_h"] <= (
+                self.empennage.htail["S"]
+                * self.empennage.htail["l_h"]/self.wing["S"]**2
                 * self.wing["b"]),
             self.empennage.verticaltail["V_v"] <= (
                 self.empennage.verticaltail["S"]
@@ -142,14 +142,14 @@ class AircraftPerf(Model):
     def setup(self, static, state):
 
         self.wing = static.wing.flight_model(static.wing, state)
-        self.htail = static.empennage.horizontaltail.flight_model(state)
+        self.htail = static.empennage.htail.flight_model(state)
         self.vtail = static.empennage.verticaltail.flight_model(state)
         self.tailboom = static.empennage.tailboom.flight_model(state)
 
         self.flight_models = [self.wing, self.htail, self.vtail,
                               self.tailboom]
         areadragmodel = [self.htail, self.vtail, self.tailboom]
-        areadragcomps = [static.empennage.horizontaltail,
+        areadragcomps = [static.empennage.htail,
                          static.empennage.verticaltail,
                          static.empennage.tailboom]
 
