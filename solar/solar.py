@@ -53,7 +53,7 @@ class Aircraft(Model):
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
-            self.empennage.htail.substitutions["AR"] = 5.0
+            self.empennage.htail.surf.substitutions.update({"AR": 5.0})
             self.empennage.substitutions["m_h"] = 0.1
 
         constraints = [
@@ -69,9 +69,9 @@ class Aircraft(Model):
                 self.empennage.htail["S"]
                 * self.empennage.htail["l_h"]/self.wing["S"]**2
                 * self.wing["b"]),
-            self.empennage.verticaltail["V_v"] <= (
-                self.empennage.verticaltail["S"]
-                * self.empennage.verticaltail["l_v"]/self.wing["S"]
+            self.empennage.vtail["V_v"] <= (
+                self.empennage.vtail["S"]
+                * self.empennage.vtail["l_v"]/self.wing["S"]
                 / self.wing["b"]),
             self.empennage.tailboom["d_0"] <= (
                 self.wing["\\tau"]*self.wing["c_{root}"])
@@ -143,14 +143,14 @@ class AircraftPerf(Model):
 
         self.wing = static.wing.flight_model(static.wing, state)
         self.htail = static.empennage.htail.flight_model(state)
-        self.vtail = static.empennage.verticaltail.flight_model(state)
+        self.vtail = static.empennage.vtail.flight_model(state)
         self.tailboom = static.empennage.tailboom.flight_model(state)
 
         self.flight_models = [self.wing, self.htail, self.vtail,
                               self.tailboom]
         areadragmodel = [self.htail, self.vtail, self.tailboom]
         areadragcomps = [static.empennage.htail,
-                         static.empennage.verticaltail,
+                         static.empennage.vtail,
                          static.empennage.tailboom]
 
         CD = Variable("C_D", "-", "aircraft drag coefficient")
