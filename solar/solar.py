@@ -141,7 +141,7 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(state)
+        self.wing = static.wing.flight_model(static.wing, state)
         self.htail = static.empennage.horizontaltail.flight_model(state)
         self.vtail = static.empennage.verticaltail.flight_model(state)
         self.tailboom = static.empennage.tailboom.flight_model(state)
@@ -262,8 +262,9 @@ class FlightSegment(Model):
                                      self.aircraftPerf)
 
         self.loading = self.aircraft.wing.loading(
-            self.aircraft["W_{cent}"], self.aircraft["W_{wing}"],
-            self.aircraftPerf["V"], self.aircraftPerf["C_L"])
+            self.aircraft.wing, self.aircraft["W_{cent}"],
+            self.aircraft["W_{wing}"], self.aircraftPerf["V"],
+            self.aircraftPerf["C_L"])
 
         for vk in self.loading.varkeys["N_{max}"]:
             if "ChordSparL" in vk.descr["models"]:
@@ -359,6 +360,6 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=17)
+    M = Mission(latitude=11)
     M.cost = M["W_{total}"]
     sol = M.solve("mosek")
