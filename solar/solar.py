@@ -10,8 +10,8 @@ from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
 from gpkit import Model, Variable
 from gpkit.tests.helpers import StdoutCaptured
-from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
-from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
+from gpkitmodels.GP.aircraft.wing.wing import AeroSurf as WingGP
+# from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
@@ -26,13 +26,15 @@ class Aircraft(Model):
     def setup(self, sp=False):
 
         self.sp = sp
+        self.empennage = Empennage()
         self.solarcells = SolarCells()
         if sp:
             self.wing = WingSP(hollow=True)
         else:
-            self.wing = WingGP(spar=BoxSpar, hollow=True)
+            WingGP.sparModel = BoxSpar
+            WingGP.fillModel = None
+            self.wing = WingGP()
         self.battery = Battery()
-        self.empennage = Empennage()
         self.motor = Motor()
 
         self.components = [self.solarcells, self.wing, self.battery,
@@ -54,7 +56,7 @@ class Aircraft(Model):
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
-            self.empennage.htail.surf.substitutions.update({"AR": 5.0})
+            self.empennage.htail.planform.substitutions.update({"AR": 5.0})
             self.empennage.substitutions["m_h"] = 0.1
 
         constraints = [
