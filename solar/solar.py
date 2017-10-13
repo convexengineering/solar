@@ -12,6 +12,7 @@ from gpkit import Model, Variable
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
+from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
@@ -29,7 +30,7 @@ class Aircraft(Model):
         if sp:
             self.wing = WingSP(hollow=True)
         else:
-            self.wing = WingGP(hollow=True)
+            self.wing = WingGP(spar=BoxSpar, hollow=True)
         self.battery = Battery()
         self.empennage = Empennage()
         self.motor = Motor()
