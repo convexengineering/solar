@@ -322,7 +322,7 @@ class Mission(Model):
                 self.mission.append(FlightSegment(self.solar, l,
                                                   355 - 10 - day))
 
-        return self.solar, self.mission
+        return self.mission, self.solar
 
     def process_result(self, result):
         super(Mission, self).process_result(result)
