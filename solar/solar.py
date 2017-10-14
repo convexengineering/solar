@@ -10,8 +10,8 @@ from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
 from gpkit import Model, Variable
 from gpkit.tests.helpers import StdoutCaptured
-from gpkitmodels.GP.aircraft.wing.wing import AeroSurf as WingGP
-# from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
+from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
+from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
@@ -29,7 +29,8 @@ class Aircraft(Model):
         self.empennage = Empennage()
         self.solarcells = SolarCells()
         if sp:
-            self.wing = WingSP(hollow=True)
+            WingSP.fillModel = None
+            self.wing = WingSP()
         else:
             WingGP.sparModel = BoxSpar
             WingGP.fillModel = None
@@ -364,6 +365,6 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=11)
+    M = Mission(latitude=11, sp=True)
     M.cost = M["W_{total}"]
-    sol = M.solve("mosek")
+    sol = M.localsolve("mosek")
