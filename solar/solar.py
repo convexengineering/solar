@@ -12,6 +12,7 @@ from gpkit import Model, Variable
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
+from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
@@ -25,13 +26,16 @@ class Aircraft(Model):
     def setup(self, sp=False):
 
         self.sp = sp
+        self.empennage = Empennage()
         self.solarcells = SolarCells()
         if sp:
-            self.wing = WingSP(hollow=True)
+            WingSP.fillModel = None
+            self.wing = WingSP()
         else:
-            self.wing = WingGP(hollow=True)
+            WingGP.sparModel = BoxSpar
+            WingGP.fillModel = None
+            self.wing = WingGP()
         self.battery = Battery()
-        self.empennage = Empennage()
         self.motor = Motor()
 
         self.components = [self.solarcells, self.wing, self.battery,
@@ -39,7 +43,7 @@ class Aircraft(Model):
         loading = []
         if sp:
             tbstate = TailBoomState()
-            loading = TailBoomFlexibility(self.empennage.horizontaltail,
+            loading = TailBoomFlexibility(self.empennage.htail,
                                           self.empennage.tailboom,
                                           self.wing, tbstate)
 
@@ -53,7 +57,6 @@ class Aircraft(Model):
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
-            self.empennage.substitutions["AR_h"] = 5.0
             self.empennage.substitutions["m_h"] = 0.1
 
         constraints = [
@@ -65,13 +68,13 @@ class Aircraft(Model):
             self.solarcells["S"] <= self.wing["S"],
             self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]*self.wing["b"] >= (
                 self.battery["\\mathcal{V}"]),
-            self.empennage.horizontaltail["V_h"] <= (
-                self.empennage.horizontaltail["S"]
-                * self.empennage.horizontaltail["l_h"]/self.wing["S"]**2
+            self.empennage.htail["V_h"] <= (
+                self.empennage.htail["S"]
+                * self.empennage.htail["l_h"]/self.wing["S"]**2
                 * self.wing["b"]),
-            self.empennage.verticaltail["V_v"] <= (
-                self.empennage.verticaltail["S"]
-                * self.empennage.verticaltail["l_v"]/self.wing["S"]
+            self.empennage.vtail["V_v"] <= (
+                self.empennage.vtail["S"]
+                * self.empennage.vtail["l_v"]/self.wing["S"]
                 / self.wing["b"]),
             self.empennage.tailboom["d_0"] <= (
                 self.wing["\\tau"]*self.wing["c_{root}"])
@@ -141,16 +144,18 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(state)
-        self.htail = static.empennage.horizontaltail.flight_model(state)
-        self.vtail = static.empennage.verticaltail.flight_model(state)
+        self.wing = static.wing.flight_model(static.wing, state)
+        self.htail = static.empennage.htail.flight_model(static.empennage.htail,
+                                                         state)
+        self.vtail = static.empennage.vtail.flight_model(static.empennage.vtail,
+                                                         state)
         self.tailboom = static.empennage.tailboom.flight_model(state)
 
         self.flight_models = [self.wing, self.htail, self.vtail,
                               self.tailboom]
         areadragmodel = [self.htail, self.vtail, self.tailboom]
-        areadragcomps = [static.empennage.horizontaltail,
-                         static.empennage.verticaltail,
+        areadragcomps = [static.empennage.htail,
+                         static.empennage.vtail,
                          static.empennage.tailboom]
 
         CD = Variable("C_D", "-", "aircraft drag coefficient")
@@ -262,8 +267,9 @@ class FlightSegment(Model):
                                      self.aircraftPerf)
 
         self.loading = self.aircraft.wing.loading(
-            self.aircraft["W_{cent}"], self.aircraft["W_{wing}"],
-            self.aircraftPerf["V"], self.aircraftPerf["C_L"])
+            self.aircraft.wing, self.aircraft["W_{cent}"],
+            self.aircraft["W_{wing}"], self.aircraftPerf["V"],
+            self.aircraftPerf["C_L"])
 
         for vk in self.loading.varkeys["N_{max}"]:
             if "ChordSparL" in vk.descr["models"]:
@@ -317,7 +323,7 @@ class Mission(Model):
                 self.mission.append(FlightSegment(self.solar, l,
                                                   355 - 10 - day))
 
-        return self.solar, self.mission
+        return self.mission, self.solar
 
     def process_result(self, result):
         super(Mission, self).process_result(result)
@@ -359,6 +365,6 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=17)
+    M = Mission(latitude=11, sp=True)
     M.cost = M["W_{total}"]
-    sol = M.solve("mosek")
+    sol = M.localsolve("mosek")
