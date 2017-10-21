@@ -47,13 +47,14 @@ class Aircraft(Model):
                                           self.empennage.tailboom,
                                           self.wing, tbstate)
 
-        Wpay = Variable("W_{pay}", 0, "lbf", "payload weight")
+        Wpay = Variable("W_{pay}", 10, "lbf", "payload weight")
         Wavn = Variable("W_{avn}", 8, "lbf", "avionics weight")
         Wtotal = Variable("W_{total}", "lbf", "aircraft weight")
         Wwing = Variable("W_{wing}", "lbf", "wing weight")
         Wcent = Variable("W_{cent}", "lbf", "center weight")
 
         self.empennage.substitutions["V_v"] = 0.04
+        self.wing.substitutions[self.wing.topvar("m_{fac}")] = 1.1
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
@@ -65,7 +66,7 @@ class Aircraft(Model):
                                         self.solarcells], "W"))),
             Wcent >= Wpay + Wavn + sum(
                 summing_vars([self.empennage, self.motor], "W")),
-            self.solarcells["S"] <= self.wing["S"],
+            self.solarcells["S"]/self.solarcells["m_{fac}"] <= self.wing["S"],
             self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]*self.wing["b"] >= (
                 self.battery["\\mathcal{V}"]),
             self.empennage.htail["V_h"] <= (
@@ -135,6 +136,7 @@ class SolarCells(Model):
         S = Variable("S", "ft**2", "solar cell area")
         W = Variable("W", "lbf", "solar cell weight")
         etasolar = Variable("\\eta", 0.22, "-", "solar cell efficiency")
+        mfac = Variable("m_{fac}", 1.0, "-", "solar cell area margin")
 
         constraints = [W >= rhosolar*S*g]
 
@@ -163,7 +165,7 @@ class AircraftPerf(Model):
         Pshaft = Variable("P_{shaft}", "hp", "shaft power")
         Pavn = Variable("P_{avn}", 0.0, "W", "Accessory power draw")
         Poper = Variable("P_{oper}", "W", "operating power")
-        mfac = Variable("m_{fac}", 1.2, "-", "drag margin factor")
+        mfac = Variable("m_{fac}", 1.05, "-", "drag margin factor")
 
         dvars = []
         for dc, dm in zip(areadragcomps, areadragmodel):
@@ -277,6 +279,8 @@ class FlightSegment(Model):
             if "GustL" in vk.descr["models"]:
                 self.loading.substitutions.update({vk: 2})
 
+        self.loading.substitutions["V_{gust}"] = 5
+
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
         return self.submodels
@@ -298,20 +302,12 @@ class SteadyLevelFlight(Model):
 
         return constraints
 
-class Flight(Model):
-    "define mission for aircraft"
-    def setup(self, aircraft, latitude, day):
-
-
-        self.flight = FlightSegment(aircraft, latitude=latitude, day=day)
-        return self.flight
-
 class Mission(Model):
     "define mission for aircraft"
     def setup(self, latitude=35, day=355, sp=False):
 
         self.solar = Aircraft(sp=sp)
-        lats = range(1, latitude+1, 1)
+        lats = range(17, latitude+1, 1)
         self.mission = []
         if day == 355 or day == 172:
             for l in lats:
@@ -365,6 +361,6 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=11, sp=True)
+    M = Mission(latitude=25, sp=False)
     M.cost = M["W_{total}"]
-    sol = M.localsolve("mosek")
+    sol = M.solve("mosek")
