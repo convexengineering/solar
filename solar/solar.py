@@ -13,9 +13,11 @@ from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
+from gpkitmodels.GP.aircraft.wing.capspar import CapSpar
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
+from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels.tools.summing_constraintset import summing_vars
 from gpfit.fit_constraintset import FitCS as FCS
 
@@ -23,12 +25,14 @@ path = os.path.dirname(gassolar.environment.__file__)
 
 class Aircraft(Model):
     "vehicle"
+    fuseModel = None
     def setup(self, sp=False):
 
         self.sp = sp
         self.empennage = Empennage()
         self.solarcells = SolarCells()
         if sp:
+            WingSP.sparModel = BoxSpar
             WingSP.fillModel = None
             self.wing = WingSP()
         else:
@@ -61,14 +65,7 @@ class Aircraft(Model):
             self.empennage.substitutions["m_h"] = 0.1
 
         constraints = [
-            Wtotal >= (Wpay + Wavn + sum(summing_vars(self.components, "W"))),
-            Wwing >= (sum(summing_vars([self.wing, self.battery,
-                                        self.solarcells], "W"))),
-            Wcent >= Wpay + Wavn + sum(
-                summing_vars([self.empennage, self.motor], "W")),
             self.solarcells["S"]/self.solarcells["m_{fac}"] <= self.wing["S"],
-            self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]*self.wing["b"] >= (
-                self.battery["\\mathcal{V}"]),
             self.empennage.htail["V_h"] <= (
                 self.empennage.htail["S"]
                 * self.empennage.htail["l_h"]/self.wing["S"]**2
@@ -80,6 +77,30 @@ class Aircraft(Model):
             self.empennage.tailboom["d_0"] <= (
                 self.wing["\\tau"]*self.wing["c_{root}"])
             ]
+
+        if self.fuseModel:
+            self.fuselage = self.fuseModel()
+            self.components.extend([self.fuselage])
+            constraints.extend([
+                self.battery["\\mathcal{V}"] <= self.fuselage["\\mathcal{V}"],
+                Wwing >= self.wing.topvar("W") + self.solarcells["W"],
+                Wcent >= (Wpay + Wavn + self.empennage.topvar("W")
+                          + self.motor["W"] + self.fuselage["W"]
+                          + self.battery["W"]),
+                ])
+        else:
+            constraints.extend([
+                Wwing >= (sum(summing_vars([self.wing, self.battery,
+                                            self.solarcells], "W"))),
+                Wcent >= (Wpay + Wavn +
+                          sum(summing_vars([self.empennage, self.motor], "W"))),
+                self.battery["\\mathcal{V}"] <= (
+                    self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]
+                    * self.wing["b"])
+                ])
+
+        constraints.extend([Wtotal >= (
+            Wpay + Wavn + sum(summing_vars(self.components, "W")))])
 
         return constraints, self.components, loading
 
@@ -160,6 +181,12 @@ class AircraftPerf(Model):
                          static.empennage.vtail,
                          static.empennage.tailboom]
 
+        if static.fuseModel:
+            self.fuse = static.fuselage.flight_model(state)
+            areadragmodel.extend([self.fuse])
+            areadragcomps.extend([static.fuselage])
+            self.flight_models.extend([self.fuse])
+
         CD = Variable("C_D", "-", "aircraft drag coefficient")
         cda = Variable("CDA", "-", "non-wing drag coefficient")
         Pshaft = Variable("P_{shaft}", "hp", "shaft power")
@@ -169,10 +196,10 @@ class AircraftPerf(Model):
 
         dvars = []
         for dc, dm in zip(areadragcomps, areadragmodel):
-            if "C_f" in dm.varkeys:
-                dvars.append(dm["C_f"]*dc["S"]/static.wing["S"])
             if "C_d" in dm.varkeys:
                 dvars.append(dm["C_d"]*dc["S"]/static.wing["S"])
+            elif "C_f" in dm.varkeys:
+                dvars.append(dm["C_f"]*dc["S"]/static.wing["S"])
 
         constraints = [
             state["(E/S)_{irr}"] >= (
@@ -361,6 +388,6 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=25, sp=False)
+    M = Mission(latitude=20, sp=False)
     M.cost = M["W_{total}"]
     sol = M.solve("mosek")
