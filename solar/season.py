@@ -1,11 +1,14 @@
-from solar import Mission
+" run seasonal trade "
+import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from relaxed_constants import relaxed_constants
-import sys
+from solar import Mission
+
+#pylint: disable=invalid-name
 
 def season():
+    " trade seasonal availibility with weight "
     days = [80, 52, 21, 355]
 
     lats = range(20, 30, 2)
@@ -17,7 +20,7 @@ def season():
             if failed:
                 mtows = mtows + [np.nan]*(4-len(mtows))
                 break
-            M = Mission(latitude=l, day=d)
+            M = Mission(latitude=range(1, l+1, 1), day=d)
             M.cost = M["W_{total}"]
             try:
                 sol = M.solve("mosek")
@@ -34,19 +37,25 @@ def season():
     return df
 
 def plot_season(df):
+    " plot season "
     fig, ax = plt.subplots()
     colors = ["#014636", "#016c59", "#02818a", "#3690c0", "#67a9cf"]
     for d, cl in zip(df, colors):
         ax.plot(range(1, 5), df[d], c=cl, ls="dashed", marker="o",
-                label="%s$^{\circ}$ Lat" % d)
+                label="%s$^{\\circ}$ Lat" % d)
 
     ax.set_xlim([0.5, 4.5])
     ax.set_ylim([0, 300])
     ax.set_ylabel("Max Take-off Weight")
-    ax.set_xticklabels(["", "6-months", "", "8-months", "", "10-months", "", "12-months"], rotation=-45, ha="left")
+    ax.set_xticklabels(["", "6-months", "", "8-months", "", "10-months", "",
+                        "12-months"], rotation=-45, ha="left")
     ax.grid()
     ax.legend(loc=2, fontsize=15, numpoints=1)
     return fig, ax
+
+def test():
+    "setup for integrated testing"
+    _ = season()
 
 if __name__ == "__main__":
 
@@ -55,16 +64,16 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    GENERATE = True
+    GENERATE = False
 
     if GENERATE:
-        df = season()
-        df.to_csv("season.generated.csv")
+        DF = season()
+        DF.to_csv("season.generated.csv")
     else:
-        df = pd.read_csv("season.generated.csv")
-        del df["Unnamed: 0"]
+        DF = pd.read_csv("season.generated.csv")
+        del DF["Unnamed: 0"]
 
-    fig, ax = plot_season(df)
-    fig.savefig(path + "season.pdf", bbox_inches="tight")
+    f, a = plot_season(DF)
+    f.savefig(path + "season.pdf", bbox_inches="tight")
 
 

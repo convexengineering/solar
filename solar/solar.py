@@ -333,17 +333,16 @@ class SteadyLevelFlight(Model):
 
 class Mission(Model):
     "define mission for aircraft"
-    def setup(self, latitude=35, day=355, sp=False):
+    def setup(self, latitude=range(1, 21, 1), day=355, sp=False):
 
         self.solar = Aircraft(sp=sp)
-        lats = range(20, latitude+1, 1)
         self.mission = []
         if day == 355 or day == 172:
-            for l in lats:
+            for l in latitude:
                 self.mission.append(FlightSegment(self.solar, l, day))
         else:
             assert day < 172
-            for l in lats:
+            for l in latitude:
                 self.mission.append(FlightSegment(self.solar, l, day))
                 self.mission.append(FlightSegment(self.solar, l,
                                                   355 - 10 - day))
@@ -367,8 +366,8 @@ class Mission(Model):
                     break
             if const:
                 print "%d is a constraining latitude" % f.latitude
-                result["latitude"].append(f.latitude)
-                result["day"].append(f.day)
+                result["latitude"].extend([f.latitude])
+                result["day"].extend([f.day])
                 continue
             for vk in f.varkeys:
                 if vk in self.solar.varkeys:
@@ -379,17 +378,18 @@ class Mission(Model):
                 else:
                     del result["constants"][vk]
                     del result["sensitivities"]["constants"][vk]
+        self.setup(latitude=result["latitude"])
 
 def test():
     " test model for continuous integration "
-    m = Mission(latitude=11)
+    m = Mission()
     m.cost = m["W_{total}"]
     m.solve()
-    m = Mission(latitude=11, sp=True)
+    m = Mission(sp=True)
     m.cost = m["W_{total}"]
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=23, sp=False)
+    M = Mission(sp=False)
     M.cost = M["W_{total}"]
     sol = M.solve("mosek")

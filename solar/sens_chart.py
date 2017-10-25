@@ -1,30 +1,32 @@
-from solar import Mission
+" create bar chart "
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
 from gpkit.repr_conventions import unitstr
+from solar import Mission
 
 #pylint: disable=invalid-name, anomalous-backslash-in-string
 
-def plot_sens(model, sol, varnames=None):
+def plot_sens(model, res, varnames=None):
+    " plot bar chart of sensitivities "
     fig, ax = plt.subplots()
     pss = []
     ngs = []
     sens = {}
     if varnames:
         for vname in varnames:
-            sen = sol["sensitivities"]["constants"][vname]
+            sen = res["sensitivities"]["constants"][vname]
             if hasattr(sen, "__len__"):
                 val = max(np.abs(sen.values()))
-                vk = [svk for svk in sen if abs(sen[svk])==val][0]
-                # sen = sol["sensitivities"]["constants"][vk]
+                vk = [svk for svk in sen if abs(sen[svk]) == val][0]
                 sen = sum(sen.values())
             else:
                 vk = model[vname].key
             sens[vk] = sen
     else:
-        for s in sol["sensitivities"]["constants"]:
-            sens[s] = sum(np.hstack([sol["sensitivities"]["constants"][s]]))
+        for s in res["sensitivities"]["constants"]:
+            sens[model[s].key] = sum(
+                np.hstack([res["sensitivities"]["constants"][s]]))
 
     labels = []
     i = 0
@@ -32,13 +34,10 @@ def plot_sens(model, sol, varnames=None):
                          reverse=True)
 
     for s in sorted_sens:
-        i += 1
         if i > 10:
             break
-        if hasattr(model[s[0]], "__len__"):
-            vk = model[s[0]][0]
-        else:
-            vk = s[0]
+        i += 1
+        vk = s[0]
         val = sum(np.hstack([model.substitutions[vk]]))
         if "units" in vk.descr:
             uts = unitstr(vk.descr["units"])
@@ -74,8 +73,25 @@ def plot_sens(model, sol, varnames=None):
     ax.set_ylabel("sensitivities")
     return fig, ax
 
+def test():
+    " test for integrated testing "
+    model = Mission(latitude=[10])
+    model.cost = model["W_{total}"]
+    result = model.solve("mosek")
+    _, _ = plot_sens(model, result)
+
+    vn = {"W_{pay}": "$W_{\\mathrm{pay}}$",
+          "\\eta_{charge}": "$\\eta_{\\mathrm{charge}}$"}
+    _, _ = plot_sens(model, result, vn)
+
 if __name__ == "__main__":
-    M = Mission(latitude=25)
+
+    if len(sys.argv) > 1:
+        path = sys.argv[1]
+    else:
+        path = ""
+
+    M = Mission(latitude=[25])
     M.cost = M["W_{total}"]
     sol = M.solve("mosek")
 
@@ -87,5 +103,5 @@ if __name__ == "__main__":
            "N_{max}": "$N_{\\mathrm{max}}$",
            "e": "$e$", "\\eta_{prop}": "$\\eta_{\\mathrm{prop}}$"}
 
-    fig, ax = plot_sens(M, sol, vns)
-    fig.savefig("sensbar.pdf", bbox_inches="tight")
+    f, a = plot_sens(M, sol, vns)
+    f.savefig(path + "sensbar.pdf", bbox_inches="tight")

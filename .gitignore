@@ -104,3 +104,9 @@ ENV/
 *.DS_Store
 
 *.generated.csv
+*.pdf
+
+#latex
+*.aux
+*.glo
+*.out
