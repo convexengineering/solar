@@ -32,11 +32,11 @@ class Aircraft(Model):
         self.empennage = Empennage()
         self.solarcells = SolarCells()
         if sp:
-            WingSP.sparModel = BoxSpar
+            WingSP.sparModel = CapSpar
             WingSP.fillModel = None
             self.wing = WingSP()
         else:
-            WingGP.sparModel = BoxSpar
+            WingGP.sparModel = CapSpar
             WingGP.fillModel = None
             self.wing = WingGP()
         self.battery = Battery()
@@ -180,6 +180,8 @@ class AircraftPerf(Model):
         areadragcomps = [static.empennage.htail,
                          static.empennage.vtail,
                          static.empennage.tailboom]
+
+        self.wing.substitutions["e"] = 0.95
 
         if static.fuseModel:
             self.fuse = static.fuselage.flight_model(state)
@@ -334,7 +336,7 @@ class Mission(Model):
     def setup(self, latitude=35, day=355, sp=False):
 
         self.solar = Aircraft(sp=sp)
-        lats = range(17, latitude+1, 1)
+        lats = range(20, latitude+1, 1)
         self.mission = []
         if day == 355 or day == 172:
             for l in lats:
@@ -388,6 +390,6 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=20, sp=False)
+    M = Mission(latitude=23, sp=False)
     M.cost = M["W_{total}"]
     sol = M.solve("mosek")
