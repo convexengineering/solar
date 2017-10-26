@@ -7,11 +7,10 @@ from solar import Mission
 
 #pylint: disable=invalid-name
 
-def season():
+def season(lats):
     " trade seasonal availibility with weight "
     days = [80, 52, 21, 355]
 
-    lats = range(20, 30, 2)
     data = {}
     for l in lats:
         failed = False
@@ -55,7 +54,7 @@ def plot_season(df):
 
 def test():
     "setup for integrated testing"
-    _ = season()
+    _ = season([20])
 
 if __name__ == "__main__":
 
@@ -67,7 +66,7 @@ if __name__ == "__main__":
     GENERATE = False
 
     if GENERATE:
-        DF = season()
+        DF = season(range(20, 30, 2))
         DF.to_csv("season.generated.csv")
     else:
         DF = pd.read_csv("season.generated.csv")
