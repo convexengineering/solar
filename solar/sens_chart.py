@@ -7,9 +7,8 @@ from solar import Mission
 
 #pylint: disable=invalid-name, anomalous-backslash-in-string
 
-def plot_sens(model, res, varnames=None):
+def get_highestsens(model, res, varnames=None):
     " plot bar chart of sensitivities "
-    fig, ax = plt.subplots()
     pss = []
     ngs = []
     sens = {}
@@ -64,11 +63,18 @@ def plot_sens(model, res, varnames=None):
             pss.append(0)
 
     ind = np.arange(0.5, i + 0.5, 1)
-    ax.bar(ind, pss, 0.5, color="#4D606E")
-    ax.bar(ind, ngs, 0.5, color="#3FBAC2")
-    ax.set_xlim([0.0, ind[-1]+1])
-    ax.set_xticks(ind)
-    ax.set_xticklabels(labels, rotation=-45, ha="left")
+    sensdict = {"positives": pss, "negatives": ngs, "indicies": ind,
+                "labels": labels}
+    return sensdict
+
+def plot_chart(sensdict):
+    "plot sensitivities on bar chart"
+    fig, ax = plt.subplots()
+    ax.bar(sensdict["indicies"], sensdict["positives"], 0.5, color="#4D606E")
+    ax.bar(sensdict["indicies"], sensdict["negatives"], 0.5, color="#3FBAC2")
+    ax.set_xlim([0.0, sensdict["indicies"][-1]+1])
+    ax.set_xticks(sensdict["indicies"])
+    ax.set_xticklabels(sensdict["labels"], rotation=-45, ha="left")
     ax.legend(["Positive", "Negative"])
     ax.set_ylabel("sensitivities")
     return fig, ax
@@ -78,11 +84,11 @@ def test():
     model = Mission(latitude=[10])
     model.cost = model["W_{total}"]
     result = model.solve("mosek")
-    _, _ = plot_sens(model, result)
+    _ = get_highestsens(model, result)
 
     vn = {"W_{pay}": "$W_{\\mathrm{pay}}$",
           "\\eta_{charge}": "$\\eta_{\\mathrm{charge}}$"}
-    _, _ = plot_sens(model, result, vn)
+    _ = get_highestsens(model, result, vn)
 
 if __name__ == "__main__":
 
@@ -103,5 +109,6 @@ if __name__ == "__main__":
            "N_{max}": "$N_{\\mathrm{max}}$",
            "e": "$e$", "\\eta_{prop}": "$\\eta_{\\mathrm{prop}}$"}
 
-    f, a = plot_sens(M, sol, vns)
+    sd = get_highestsens(M, sol, vns)
+    f, a = plot_chart(sd)
     f.savefig(path + "sensbar.pdf", bbox_inches="tight")
