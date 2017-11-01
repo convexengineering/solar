@@ -13,9 +13,11 @@ from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
+from gpkitmodels.GP.aircraft.wing.capspar import CapSpar
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
+from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels.tools.summing_constraintset import summing_vars
 from gpfit.fit_constraintset import FitCS as FCS
 
@@ -23,16 +25,18 @@ path = os.path.dirname(gassolar.environment.__file__)
 
 class Aircraft(Model):
     "vehicle"
+    fuseModel = None
     def setup(self, sp=False):
 
         self.sp = sp
         self.empennage = Empennage()
         self.solarcells = SolarCells()
         if sp:
+            WingSP.sparModel = CapSpar
             WingSP.fillModel = None
             self.wing = WingSP()
         else:
-            WingGP.sparModel = BoxSpar
+            WingGP.sparModel = CapSpar
             WingGP.fillModel = None
             self.wing = WingGP()
         self.battery = Battery()
@@ -47,27 +51,21 @@ class Aircraft(Model):
                                           self.empennage.tailboom,
                                           self.wing, tbstate)
 
-        Wpay = Variable("W_{pay}", 0, "lbf", "payload weight")
+        Wpay = Variable("W_{pay}", 10, "lbf", "payload weight")
         Wavn = Variable("W_{avn}", 8, "lbf", "avionics weight")
         Wtotal = Variable("W_{total}", "lbf", "aircraft weight")
         Wwing = Variable("W_{wing}", "lbf", "wing weight")
         Wcent = Variable("W_{cent}", "lbf", "center weight")
 
         self.empennage.substitutions["V_v"] = 0.04
+        self.wing.substitutions[self.wing.topvar("m_{fac}")] = 1.1
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
             self.empennage.substitutions["m_h"] = 0.1
 
         constraints = [
-            Wtotal >= (Wpay + Wavn + sum(summing_vars(self.components, "W"))),
-            Wwing >= (sum(summing_vars([self.wing, self.battery,
-                                        self.solarcells], "W"))),
-            Wcent >= Wpay + Wavn + sum(
-                summing_vars([self.empennage, self.motor], "W")),
-            self.solarcells["S"] <= self.wing["S"],
-            self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]*self.wing["b"] >= (
-                self.battery["\\mathcal{V}"]),
+            self.solarcells["S"]/self.solarcells["m_{fac}"] <= self.wing["S"],
             self.empennage.htail["V_h"] <= (
                 self.empennage.htail["S"]
                 * self.empennage.htail["l_h"]/self.wing["S"]**2
@@ -79,6 +77,30 @@ class Aircraft(Model):
             self.empennage.tailboom["d_0"] <= (
                 self.wing["\\tau"]*self.wing["c_{root}"])
             ]
+
+        if self.fuseModel:
+            self.fuselage = self.fuseModel()
+            self.components.extend([self.fuselage])
+            constraints.extend([
+                self.battery["\\mathcal{V}"] <= self.fuselage["\\mathcal{V}"],
+                Wwing >= self.wing.topvar("W") + self.solarcells["W"],
+                Wcent >= (Wpay + Wavn + self.empennage.topvar("W")
+                          + self.motor["W"] + self.fuselage["W"]
+                          + self.battery["W"]),
+                ])
+        else:
+            constraints.extend([
+                Wwing >= (sum(summing_vars([self.wing, self.battery,
+                                            self.solarcells], "W"))),
+                Wcent >= (Wpay + Wavn +
+                          sum(summing_vars([self.empennage, self.motor], "W"))),
+                self.battery["\\mathcal{V}"] <= (
+                    self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]
+                    * self.wing["b"])
+                ])
+
+        constraints.extend([Wtotal >= (
+            Wpay + Wavn + sum(summing_vars(self.components, "W")))])
 
         return constraints, self.components, loading
 
@@ -135,6 +157,7 @@ class SolarCells(Model):
         S = Variable("S", "ft**2", "solar cell area")
         W = Variable("W", "lbf", "solar cell weight")
         etasolar = Variable("\\eta", 0.22, "-", "solar cell efficiency")
+        mfac = Variable("m_{fac}", 1.0, "-", "solar cell area margin")
 
         constraints = [W >= rhosolar*S*g]
 
@@ -158,19 +181,27 @@ class AircraftPerf(Model):
                          static.empennage.vtail,
                          static.empennage.tailboom]
 
+        self.wing.substitutions["e"] = 0.95
+
+        if static.fuseModel:
+            self.fuse = static.fuselage.flight_model(state)
+            areadragmodel.extend([self.fuse])
+            areadragcomps.extend([static.fuselage])
+            self.flight_models.extend([self.fuse])
+
         CD = Variable("C_D", "-", "aircraft drag coefficient")
         cda = Variable("CDA", "-", "non-wing drag coefficient")
         Pshaft = Variable("P_{shaft}", "hp", "shaft power")
         Pavn = Variable("P_{avn}", 0.0, "W", "Accessory power draw")
         Poper = Variable("P_{oper}", "W", "operating power")
-        mfac = Variable("m_{fac}", 1.2, "-", "drag margin factor")
+        mfac = Variable("m_{fac}", 1.05, "-", "drag margin factor")
 
         dvars = []
         for dc, dm in zip(areadragcomps, areadragmodel):
-            if "C_f" in dm.varkeys:
-                dvars.append(dm["C_f"]*dc["S"]/static.wing["S"])
             if "C_d" in dm.varkeys:
                 dvars.append(dm["C_d"]*dc["S"]/static.wing["S"])
+            elif "C_f" in dm.varkeys:
+                dvars.append(dm["C_f"]*dc["S"]/static.wing["S"])
 
         constraints = [
             state["(E/S)_{irr}"] >= (
@@ -277,6 +308,8 @@ class FlightSegment(Model):
             if "GustL" in vk.descr["models"]:
                 self.loading.substitutions.update({vk: 2})
 
+        self.loading.substitutions["V_{gust}"] = 5
+
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
         return self.submodels
@@ -298,27 +331,18 @@ class SteadyLevelFlight(Model):
 
         return constraints
 
-class Flight(Model):
-    "define mission for aircraft"
-    def setup(self, aircraft, latitude, day):
-
-
-        self.flight = FlightSegment(aircraft, latitude=latitude, day=day)
-        return self.flight
-
 class Mission(Model):
     "define mission for aircraft"
-    def setup(self, latitude=35, day=355, sp=False):
+    def setup(self, latitude=range(1, 21, 1), day=355, sp=False):
 
         self.solar = Aircraft(sp=sp)
-        lats = range(1, latitude+1, 1)
         self.mission = []
         if day == 355 or day == 172:
-            for l in lats:
+            for l in latitude:
                 self.mission.append(FlightSegment(self.solar, l, day))
         else:
             assert day < 172
-            for l in lats:
+            for l in latitude:
                 self.mission.append(FlightSegment(self.solar, l, day))
                 self.mission.append(FlightSegment(self.solar, l,
                                                   355 - 10 - day))
@@ -342,8 +366,8 @@ class Mission(Model):
                     break
             if const:
                 print "%d is a constraining latitude" % f.latitude
-                result["latitude"].append(f.latitude)
-                result["day"].append(f.day)
+                result["latitude"].extend([f.latitude])
+                result["day"].extend([f.day])
                 continue
             for vk in f.varkeys:
                 if vk in self.solar.varkeys:
@@ -354,17 +378,18 @@ class Mission(Model):
                 else:
                     del result["constants"][vk]
                     del result["sensitivities"]["constants"][vk]
+        self.setup(latitude=result["latitude"])
 
 def test():
     " test model for continuous integration "
-    m = Mission(latitude=11)
+    m = Mission()
     m.cost = m["W_{total}"]
     m.solve()
-    m = Mission(latitude=11, sp=True)
+    m = Mission(sp=True)
     m.cost = m["W_{total}"]
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=11, sp=True)
+    M = Mission(sp=False)
     M.cost = M["W_{total}"]
-    sol = M.localsolve("mosek")
+    sol = M.solve("mosek")
