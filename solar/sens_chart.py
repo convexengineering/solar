@@ -37,7 +37,7 @@ def get_highestsens(model, res, varnames=None):
             break
         i += 1
         vk = s[0]
-        val = sum(np.hstack([model.substitutions[vk]]))
+        val = sum(np.hstack([res(vk)]))
         if "units" in vk.descr:
             uts = unitstr(vk.descr["units"])
         else:
