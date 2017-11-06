@@ -41,7 +41,7 @@ def get_highestsens(model, res, varnames=None):
         if "units" in vk.descr:
             uts = unitstr(vk.descr["units"])
         else:
-            uts = "-"
+            uts = ""
 
         if varnames:
             for vn in varnames:
@@ -54,7 +54,7 @@ def get_highestsens(model, res, varnames=None):
                         lbl = varnames[allname]
         else:
             lbl = vk.descr["label"]
-        labels.append(lbl + "$ =%.2f$ [%s]" % (val, uts))
+        labels.append(lbl + "$ =%.2f$ %s" % (val, uts.replace("*", "")))
         if s[1] > 0:
             pss.append(s[1])
             ngs.append(0)
@@ -71,12 +71,14 @@ def plot_chart(sensdict):
     "plot sensitivities on bar chart"
     fig, ax = plt.subplots()
     ax.bar(sensdict["indicies"], sensdict["positives"], 0.5, color="#4D606E")
-    ax.bar(sensdict["indicies"], sensdict["negatives"], 0.5, color="#3FBAC2")
+    ax.bar(sensdict["indicies"], -np.array(sensdict["negatives"]), 0.5,
+           color="#3FBAC2")
     ax.set_xlim([0.0, sensdict["indicies"][-1]+1])
     ax.set_xticks(sensdict["indicies"])
     ax.set_xticklabels(sensdict["labels"], rotation=-45, ha="left")
-    ax.legend(["Positive", "Negative"])
+    # ax.legend(["Positive", "Negative"])
     ax.set_ylabel("sensitivities")
+    ax.grid()
     return fig, ax
 
 def test():

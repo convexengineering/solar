@@ -109,8 +109,8 @@
 \maketitle
 
 \begin{abstract}
-    Solar aircraft represented a highly coupled, multidisciplinary problem. 
-    Trade-offs between aerodynamic performance, structural integrity, component performance, cost, and manufacturability are non intuitive. 
+    Solar aircraft represents a highly coupled, multidisciplinary problem. 
+    Trade-offs between aerodynamic performance, structural integrity, component performance, cost, and manufacturability are non-intuitive. 
     Using geometric programming configuration trades, resizing analysis, and design parameter sensitivity can all be achieved to a level of speed and reliability not previously achieved in conceptual and preliminary aircraft design. 
     Using this optimization method trade studies in design parameters, configurations and requirements are presented for a solar-electric aircraft.  
     The results of these trade studies are used to inform design decisions and validate higher order models. 
@@ -201,18 +201,18 @@ Configurations among these solar aircraft vary widely in part because analyzing 
 For the same reason, it is difficult to identify key design parameters.  
 This ambiguity makes down-selecting critical components such as batteries or solar cells, or correctly designing components to have the highest system level impact is potentially not obvious.  
 
-Using the model developed by Burton and Hoburg\cite{burton_solar_2017}, this paper explores how geometric programming can be used in tandem with higher fidelity models to explore configuration, key design parameter, and requirement tradeoffs for solar HALE aircraft.
-Geometric programming (GP) is chosen as a means of achieving the defined objectives because of its speed and reliability, solving for thousands of variables in seconds.\cite{gp}
-Because of the speed of GPs, designs and configurations can be validated and analyzed efficiently.  
+Using the model developed by Burton and Hoburg\cite{burton_solar_2017}, this paper explores how geometric programming can be used in tandem with higher fidelity models to explore configuration, key design parameters, and requirement tradeoffs for solar HALE aircraft.
+Geometric programming (GP) is chosen as a means of exploring this trade space because of its speed and reliability.  
+Because GPs can solve for thousands of variables in seconds\cite{gp}, designs and configurations can be validated and analyzed efficiently.  
 Additionally, design sensitivities to every parameter are an output of a GP solution, allowing for immediate identification of driving design parameters. 
 While the form of GP often requires higher fidelity models to be approximated as convex constraints\cite{gpkit}, the analysis done through GP models captures important design trends and variables that can guide conceptual and preliminary design. 
-The results of the trade studies done in GP can be used to narrow the design space, allowing faster progression through conceptual and preliminary design with higher fidelity methods. 
+Trade studies done in GP can narrow the design space, allowing faster progression through conceptual and preliminary design with higher fidelity methods. 
  
 Solar HALE aircraft are typically designed to fly for months at a time.\cite{aquila}  
-The constraining design case for year around availability is completing a 24-hour cycle during the winter solstice when solar flux is at a minimum.  
-If this can be achieved, relying on solar power during the day to operate and recharge batteries and operating on battery power during the night, then it can theoretically fly indefinitely.  
-As a station keeping aircraft, the aircraft must fly faster than the local wind speeds.  
-These two operating requirements, solar flux and wind speed, suggest that mission requirements can be latitude, season and percentile wind speed. 
+The constraining design case for year-round availability is completing a 24-hour cycle during the winter solstice when solar flux is at a minimum, relying on solar power during the day to operate and recharge batteries and running on battery power at night. 
+If this can be achieved, then it can theoretically fly indefinitely.  
+As a station keeping aircraft, it must fly faster than the local wind speeds. 
+Solar flux and wind speed depend on latitude, season and percentile wind speed, which are defined as mission requirements.
 
 Basic mission requirements are defined to size a solar aircraft using the GP model described by Burton and Hoburg.\cite{burton_solar_2017}
 Different component and aircraft configurations are modeled in a GP form and evaluated against the baseline sizing. 
@@ -226,7 +226,13 @@ Future higher fidelity models may include a vortex lattice method, a propeller p
 
 \section{Hypothetical Baseline Design}
 
-A hypothetical sizing study for a solar HALE aircraft is achieved using the GP model defined in Burton and Hoburg.\cite{burton_solar_2017} The nominal requirements are defined in Table~\ref{t:mreqs}.
+A hypothetical sizing study for a solar HALE aircraft is achieved using the GP model defined in Burton and Hoburg.\cite{burton_solar_2017} 
+The sizing is based on requirements of station keeping, seasonal availibility and latitude. 
+To station keep, the aircraft must fly faster than the loacl wind speeds.  
+Thus the station keeping requirement is defined as a percentage of the wind speeds per latitude.  
+The seasonal requirement is defined as the capability to complete a mission during a given portion of the year.  
+The latitude requirement is defined as the ability to fly anywhere between a band of latitudes. 
+The nominal requirements are defined in Table~\ref{t:mreqs}.
 
 \begin{longtable}{lccccccccccccc}
 \caption{Mission Requirements}\\
@@ -244,11 +250,12 @@ Basic assumptions of the model described by Burton and Hoburg are summarized as:
 
 \begin{itemize}
     \item Configuration: The GP model assumes a constant tapered wing and conventional tail configuration.  The batteries are placed inside the wing to achieve span loading.  Solar panels are placed on the wing.  
-    \item Operations: The aircraft is assumed to fly above 50,000 ft to avoid cloud coverage and to reach the local minimum wind speeds that occur around 60,000 ft. The model trades air density with wind speed to achieve the optimum altitude. Solar flux is calculated as a function of latitude and day of the year and assumes the wing is flat. 
-    \item Structural: The aircraft is subjected to two load cases: a standard g-loading and a one minus cosine distributed gust load.  The wing spar is assumed to take all of the bending loads and is a cap spar with foam core. The tail boom is a linearly tapered tube.  All materials are carbon fiber and foam.  
+    \item Operations: The aircraft is assumed to fly above 50,000 ft to avoid cloud coverage and to reach the local minimum wind speeds that occur around 60,000 ft.\cite{burton_solar_2017} The model trades air density with wind speed to achieve the optimum altitude. Solar flux is calculated as a function of latitude and day of the year and assumes the wing is flat. 
+    \item Structural: The aircraft is subjected to two load cases: a standard g-loading and a one-minus-cosine distributed gust load.  The wing spar is assumed to take all of the bending loads and is a cap spar with foam core. The tail boom is a linearly tapered tube.  All materials are carbon fiber and foam.  
     \end{itemize}
 
-    For the given design parameters in Table~\ref{t:params}, and with an objective function $\min(W_{\mathrm{MTO}})$, the model solved for 186 variables in 0.0654 seconds.  Table~\ref{t:design} shows key design variables of the output solution. 
+    For the given design parameters in Table~\ref{t:params}, and with an objective function $\min(W_{\mathrm{MTO}})$, the model solved for 186 variables in 0.0654 seconds on a standard desktop computer. 
+Table~\ref{t:design} shows various design variables of the output solution. 
 
 \begin{multicols}{2}
 
@@ -308,20 +315,20 @@ Figure~\ref{f:sensbar} shows the highest sensitivities for the design parameters
 \begin{figure}[h!]
 	\begin{center}
 	\includegraphics[width=0.6\textwidth]{sensbar.pdf}
-    \caption{\textbf{Design parameters with highest sensitivity have the greatest effect on objective function. }}
+    \caption{\textbf{Parameters with highest sensitivity have largest effect on objective function. }}
 	\label{f:sensbar}
 	\end{center}
 \end{figure}
 
 
-These sensitivities can help identify the most critical aspects of a design. 
+These sensitivities can help identify the most important aspects of a design. 
 For the given assumptions in this design, the propeller efficiency, battery specific energy and solar cell efficiency all have high sensitivities. 
 This would suggest that higher fidelity models should be used to estimate the performance of these components to meet the design requirements. 
-Note the sensitivity to the payload weight is relatively small, suggesting that efforts to reduce payload size and weight will have diminishing returns. 
+Note the sensitivity to the payload weight is relatively small, suggesting that efforts to reduce payload weight will have diminishing returns. 
 
 Another useful application for sensitivities is to evaluate return on investment costs of improving technology.  
 Batteries and solar cells both have high costs, but it is not immediately obvious which one, if improved, will have greater impact on aircraft size.  
-If it is assumed that the cost of improving solar cells and the cost of improving batteries are the same, then by using the sensitivities it becomes clear that investing it battery technology will have a greater impact on the design than by investing in solar cells. 
+If it is assumed that the cost of improving solar cells and the cost of improving batteries for a giver percentage are the same, then by using the sensitivities it becomes clear that investing in battery technology will have a greater impact on the design than by investing in solar cells. 
 
 \section{Configuration Trade Studies}
 
@@ -405,7 +412,7 @@ The tip deflection is constrained to be less than 20\% of the half span, $\frac{
 
 It seems clear from the moment of inertia and weight constraints that the box spar will have a better performance than the cap spar.  
 Using the GP model as a method of comparing the two configurations, the difference in performance can be quantified. 
-Table~\ref{t:spar} shows difference in key variables for the two configurations. 
+Table~\ref{t:spar} shows difference in important variables for the two configurations. 
 
 \begin{longtable}{lccccccccccccc}
     \caption{Spar Configuration Comparison}\\
@@ -434,7 +441,7 @@ Using the GP solar model, this trade study can be accomplished by assuming an el
 
 \begin{equation}
     \label{e:fusevol}
-    \mathcal{V}_{\text{fuse}} \geq E_{\mathrm{batt}} (EV_{\mathrm{batt}}), 
+    \mathcal{V}_{\text{fuse}} \geq \frac{E_{\mathrm{batt}}} {EV_{\mathrm{batt}}}, 
 \end{equation}
 
 where $E_{\mathrm{batt}}$ is the total required battery energy to complete the mission, and $(EV_{\mathrm{batt}}) = 800 $ [Whr/l] is the battery energy density. 
@@ -474,7 +481,7 @@ where $k_{\text{fuse}}$ is the form factor approximated by\cite{raymer}
     k_{\text{fuse}} \geq 1 + \frac{60}{(l_{\text{fuse}}/2R_{\text{fuse}})^3} + \frac{(l_{\text{fuse}}/2R_{\text{fuse}})}{400}.
 \end{equation}
 
-Given these assumptions and the requirements and design parameters listed in Tables~\ref{t:mreqs} and~\ref{t:params}, the solar aircraft model returned an infeasible solution with a single fuselage. Only by relaxing the latitude requirement to 23$^{\circ}$ latitude was a feasible solution reached.  Table~\ref{t:fuse} shows a comparison of the two configurations at a latitude requirement of 23$^{\circ}$. 
+Given these assumptions and the requirements and design parameters listed in Tables~\ref{t:mreqs} and~\ref{t:params}, the solar aircraft model is guaranteed infeasible with a single fuselage. Only by relaxing the latitude requirement to 23$^{\circ}$ latitude was a feasible solution reached.  Table~\ref{t:fuse} shows a comparison of the two configurations at a latitude requirement of 23$^{\circ}$. 
 
 \begin{longtable}{lccccccccccccc}
     \caption{Battery Placement Trade at 23$^{\circ}$ Latitude}\\
@@ -498,7 +505,7 @@ This suggests that a compromise between performance and manufacturing or operati
 One way to understand why these two configurations are so different is to look at the sensitivities to the structural design parameters of loading factor, maximum allowable tip deflection and maximum allowable stress. 
 Table~\ref{t:fusesens} lists the sensitivities to these parameters for both configurations. 
 A non-zero sensitivity means the constraint or constraints involving that parameter are active.  
-For example, because the sensitivity to the standard g-loading factor is non zero when the batteries are placed in the fuselage then the aircraft structure is sized by the g-loading case.  
+For example, because the sensitivity to the standard g-loading factor is non-zero when the batteries are placed in the fuselage then the aircraft structure is sized by the g-loading case.  
 For both configurations, the sensitivity to maximum allowable stress is zero implying that both aircraft structures are stiffness constrained. 
 Similarly, because the maximum allowable tip deflection sensitivity is non-zero and the material strength sensitivity is zero then the wing structure for both configurations is stiffness constrained, not strength constrained. 
 
@@ -523,14 +530,15 @@ Both of these require more battery weight to close the energy cycle, creating a 
 \section{Resizing for Different Requirements}
 
 Because solar flux and wind speed vary with both season and latitude, it is not clear how aircraft size and weight would vary for different seasonal and latitude requirements.  
-Again using the solar GP model described by Burton and Hoburg, the model was solved 13 times for different requirements in a total of 2.671 seconds.  
+For the seasonal requirement, time is centered on the summer solstice such that 6-month availability corresponds to availability between March 21st and September 21st. 
+Again using the solar GP model described by Burton and Hoburg, the model was solved 13 times for different requirements in a total of 2.67 seconds.  
 Figure~\ref{f:season} shows the results of this study. 
-Returned solutions for 10 and 12 month availability at 28$^{\circ}$ latitude were infeasible and are therefore not shown.  
+Returned solutions for 10 and 12 month availability at 28$^{\circ}$ latitude were infeasible and therefore not shown.  
 
 \begin{figure}[h!]
 	\begin{center}
 	\includegraphics[width=0.75\textwidth]{season.pdf}
-    \caption{\textbf{Resizing study for various latitude and seasonal requirements. }}
+    \caption{\textbf{Resizing study for various latitude and seasonal requirements.}}
 	\label{f:season}
 	\end{center}
 \end{figure}
@@ -615,7 +623,7 @@ The pitch authority requirement is that at the forward-most c.g. position and ma
 
 where $\Delta x_{cg} = (x_{cg})_{\text{aft}} - (x_{cg})_{\text{fwd}}$. 
 This set of equations is GP compatible with the exception of Equations~\ref{e:tbflex} and~\ref{e:mw}, which require signomial programming (SP) to solve.  
-SP models solve a difference of convex program as described by Boyd. 
+SP models solve a difference of convex program as described by Boyd.\cite{gp}
 
 A comparison of the horizontal tail sizing by volume coefficient and by using the tail boom flexibility model show that incorporating the flexibility model into the aircraft model captures the correct design trends.  
 Table~\ref{t:tbflex} shows relevant variable values with and without the tail boom flexibility model.  
