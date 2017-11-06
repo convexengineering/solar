@@ -41,8 +41,8 @@ def plot_season(df):
     colors = ["#014636", "#016c59", "#02818a", "#3690c0", "#67a9cf"]
     mrks = ["o", "v", "D", "^", "s"]
     for d, cl, mk in zip(df, colors, mrks):
-        ax.plot(range(1, 5), df[d], ms=7, lw=2, color=cl, ls="dashed", marker=mk,
-                label="%s$^{\\circ}$ Lat" % d)
+        ax.plot(range(1, 5), df[d], ms=7, lw=2, color=cl, ls="dashed",
+                marker=mk, label="%s$^{\\circ}$ Lat" % d)
 
     ax.set_xlim([0.5, 4.5])
     ax.set_ylim([0, 300])
