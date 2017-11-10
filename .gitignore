@@ -110,3 +110,5 @@ ENV/
 *.aux
 *.glo
 *.out
+*.bbl
+*.blg
