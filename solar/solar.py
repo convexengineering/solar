@@ -297,18 +297,19 @@ class FlightSegment(Model):
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
-        self.loading = self.aircraft.wing.loading(
-            self.aircraft.wing, self.aircraft["W_{cent}"],
-            self.aircraft["W_{wing}"], self.aircraftPerf["V"],
-            self.aircraftPerf["C_L"])
+        self.loading = [
+            self.aircraft.wing.spar.loading(
+                self.aircraft.wing, self.aircraft["W_{cent}"]),
+            self.aircraft.wing.spar.gustloading(
+                self.aircraft.wing,
+                self.aircraft["W_{cent}"], self.aircraft["W_{wing}"],
+                self.aircraftPerf["V"], self.aircraftPerf["C_L"])]
 
-        for vk in self.loading.varkeys["N_{max}"]:
-            if "ChordSparL" in vk.descr["models"]:
-                self.loading.substitutions.update({vk: 5})
-            if "GustL" in vk.descr["models"]:
-                self.loading.substitutions.update({vk: 2})
+        self.loading[0].substitutions["N_{max}"] = 5
+        self.loading[1].substitutions["V_{gust}"] = 5
+        self.loading[1].substitutions["N_{max}"] = 2
 
-        self.loading.substitutions["V_{gust}"] = 5
+        constraints = [self.aircraft["W_{cent}"] == self.loading[0]["W"]]
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
