@@ -59,6 +59,7 @@ class Aircraft(Model):
 
         self.empennage.substitutions["V_v"] = 0.04
         self.wing.substitutions[self.wing.topvar("m_{fac}")] = 1.1
+        del self.wing.planform.substitutions["\\tau"]
 
         if not sp:
             self.empennage.substitutions["V_h"] = 0.45
@@ -167,7 +168,7 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(static.wing, state)
+        self.wing = static.wing.flight_model(static.wing, state, fitdata="dai1336a.csv")
         self.htail = static.empennage.htail.flight_model(static.empennage.htail,
                                                          state)
         self.vtail = static.empennage.vtail.flight_model(static.empennage.vtail,
