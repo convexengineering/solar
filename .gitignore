@@ -112,3 +112,5 @@ ENV/
 *.out
 *.bbl
 *.blg
+
+*.pol

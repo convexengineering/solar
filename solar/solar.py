@@ -167,7 +167,7 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(static.wing, state)
+        self.wing = static.wing.flight_model(static.wing, state, fitdata="dai1336a.csv")
         self.htail = static.empennage.htail.flight_model(static.empennage.htail,
                                                          state)
         self.vtail = static.empennage.vtail.flight_model(static.empennage.vtail,
@@ -351,37 +351,6 @@ class Mission(Model):
 
         return self.mission, self.solar
 
-    def process_result(self, result):
-        super(Mission, self).process_result(result)
-        result["latitude"] = []
-        result["day"] = []
-        sens = result["sensitivities"]["constants"]
-        for f in self.mission:
-            const = False
-            for sub in f.substitutions:
-                if sub not in f.varkeys:
-                    continue
-                if sub in self.solar.varkeys:
-                    continue
-                if any(s > 1e-5 for s in np.hstack([abs(sens[sub])])):
-                    const = True
-                    break
-            if const:
-                print "%d is a constraining latitude" % f.latitude
-                result["latitude"].extend([f.latitude])
-                result["day"].extend([f.day])
-                continue
-            for vk in f.varkeys:
-                if vk in self.solar.varkeys:
-                    continue
-                del result["variables"][vk]
-                if vk in result["freevariables"]:
-                    del result["freevariables"][vk]
-                else:
-                    del result["constants"][vk]
-                    del result["sensitivities"]["constants"][vk]
-        self.setup(latitude=result["latitude"])
-
 def test():
     " test model for continuous integration "
     m = Mission()
@@ -392,6 +361,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(sp=False)
+    M = Mission(latitude=[20], sp=False)
+    del M.substitutions[M.solar.wing.planform["\\tau"]]
     M.cost = M["W_{total}"]
     sol = M.solve("mosek")
