@@ -39,13 +39,14 @@ def fit_setup(re_range, tau_range):
     CD = []
     RE = []
     tau = []
-    for t in tau_range:
+    for i in range(len(tau_range["scale"])):
         for r in re_range:
-            dataf = text_to_df("dai1336a.%d.ncrit09.Re%dk.pol" % (t, r))
+            dataf = text_to_df("dai1336a.%d.ncrit09.Re%dk.pol" % (
+                tau_range["scale"][i], r))
             CL.append(dataf["CL"].values.astype(np.float))
             CD.append(dataf["CD"].values.astype(np.float))
             RE.append([r*1000.0]*len(CL[-1]))
-            tau.append([t/100.0]*len(CL[-1]))
+            tau.append([tau_range["tau"][i]]*len(CL[-1]))
 
     u1 = np.hstack(CL)
     u2 = np.hstack(RE)
@@ -62,6 +63,7 @@ def plot_fits(cnstr, x, y):
     yfit = cnstr.evaluate(x)
     x2, ind = np.unique(x[2], return_index=True)
     ind = np.append(ind, len(x[2]))
+    figs = []
     for i in range(1, len(ind)):
         colors = ["#084081", "#0868ac", "#2b8cbe", "#4eb3d3", "#7bccc4"]*5
         xt, yt = x[0:2, ind[i-1]:ind[i]], y[ind[i-1]:ind[i]]
@@ -82,12 +84,13 @@ def plot_fits(cnstr, x, y):
         ax.set_title("$\\tau = %.2f$" % exp(x2[i-1]))
         ax.legend(loc=2)
         ax.grid()
-        fig.savefig("dai1336a.%d.fits.pdf" % (exp(x2[i-1])*100.0),
-                    bbox_inches="tight")
+        figs.append(fig)
+    return figs
 
 if __name__ == "__main__":
     Re_r = [125, 150, 200]
-    tau_r = [80, 90, 100, 105]
+    tau_r = {"scale": [80, 90, 100, 105],
+             "tau": [0.1094, 0.1231, 0.13682, 0.146]}
     X, Y = fit_setup(Re_r, tau_r) # call fit(X, Y, 4, "SMA") to get fit
     np.random.seed(0)
     cn, err = fit(X, Y, 3, "SMA")
@@ -95,4 +98,6 @@ if __name__ == "__main__":
     df = cn.get_dataframe()
     df.to_csv("../../dai1336a.csv", index=False)
 
-    plot_fits(cn, X, Y)
+    Fs = plot_fits(cn, X, Y)
+    for t, F in zip(tau_r["scale"], Fs):
+        F.savefig("dai1336a.%d.fits.pdf" % t, bbox_inches="tight")
