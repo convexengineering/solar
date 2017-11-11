@@ -298,22 +298,23 @@ class FlightSegment(Model):
                                      self.aircraftPerf)
 
         self.loading = [
-            self.aircraft.wing.spar.loading(
-                self.aircraft.wing, self.aircraft["W_{cent}"]),
-            self.aircraft.wing.spar.gustloading(
-                self.aircraft.wing,
-                self.aircraft["W_{cent}"], self.aircraft["W_{wing}"],
-                self.aircraftPerf["V"], self.aircraftPerf["C_L"])]
+            self.aircraft.wing.spar.loading(self.aircraft.wing),
+            self.aircraft.wing.spar.gustloading(self.aircraft.wing)]
 
         self.loading[0].substitutions["N_{max}"] = 5
         self.loading[1].substitutions["V_{gust}"] = 5
         self.loading[1].substitutions["N_{max}"] = 2
 
-        constraints = [self.aircraft["W_{cent}"] == self.loading[0]["W"]]
+        constraints = [self.aircraft["W_{cent}"] == self.loading[0]["W"],
+                       self.aircraft["W_{cent}"] == self.loading[1]["W"],
+                       self.aircraft["W_{wing}"] == self.loading[1]["W_w"],
+                       self.fs["V"] == self.loading[1]["V"],
+                       self.aircraftPerf["C_L"] == self.loading[1]["c_l"],
+                      ]
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
-        return self.submodels
+        return constraints, self.submodels
 
 class SteadyLevelFlight(Model):
     "steady level flight model"
