@@ -8,7 +8,7 @@ import numpy as np
 import gassolar.environment
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, Variable
+from gpkit import Model, Variable, parse_variables
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
@@ -24,9 +24,32 @@ from gpfit.fit_constraintset import FitCS as FCS
 path = os.path.dirname(gassolar.environment.__file__)
 
 class Aircraft(Model):
-    "vehicle"
+    """ Aircraft Model
+
+    Variables
+    ---------
+    Wpay        10      [lbf]   payload weight
+    Wavn        8       [lbf]   avionics weight
+    Wtotal              [lbf]   aircraft weight
+    Wwing               [lbf]   wing weight
+    Wcent               [lbf]   center weight
+
+    Upper Unbounded
+    ---------------
+    Wtotal, Wwing, Wcent
+
+    LaTex Strings
+    -------------
+    Wpay        W_{\\mathrm{pay}}
+    Wavn        W_{\\mathrm{avn}}
+    Wtotal      W_{\\mathrm{total}}
+    Wwing       W_{\\mathrm{wing}}
+    Wcent       W_{\\mathrm{cent}}
+
+    """
     fuseModel = None
     def setup(self, sp=False):
+        exec parse_variables(Aircraft.__doc__)
 
         self.sp = sp
         self.emp = Empennage()
@@ -51,31 +74,31 @@ class Aircraft(Model):
                                           self.emp.tailboom,
                                           self.wing, tbstate)
 
-        Wpay = Variable("W_{pay}", 10, "lbf", "payload weight")
-        Wavn = Variable("W_{avn}", 8, "lbf", "avionics weight")
-        Wtotal = Variable("W_{total}", "lbf", "aircraft weight")
-        Wwing = Variable("W_{wing}", "lbf", "wing weight")
-        Wcent = Variable("W_{cent}", "lbf", "center weight")
+        Sw = self.Sw = self.wing.planform.S
+        cmac = self.cmac = self.wing.planform.cmac
+        tau = self.tau = self.wing.planform.tau
+        croot = self.croot = self.wing.planform.croot
+        b = self.b = self.wing.planform.b
+        Vh = self.Vh = self.emp.htail.Vh
+        lh = self.lh = self.emp.htail.lh
+        Sh = self.Sh = self.emp.htail.planform.S
+        Vv = self.Vv = self.emp.vtail.Vv
+        Sv = self.Sv = self.emp.vtail.planform.S
+        lv = self.lv = self.emp.vtail.lv
+        d0 = self.d0 = self.emp.tailboom.d0
 
-        self.emp.substitutions[self.emp.vtail.Vv] = 0.04
+        self.emp.substitutions[Vv] = 0.04
         self.wing.substitutions[self.wing.mfac] = 1.1
-
         if not sp:
-            self.emp.substitutions[self.emp.htail.Vh] = 0.45
+            self.emp.substitutions[Vh] = 0.45
             self.emp.substitutions[self.emp.htail.mh] = 0.1
 
+
         constraints = [
-            self.solarcells["S"]/self.solarcells["m_{fac}"] <= self.wing.planform.S,
-            self.emp.htail.Vh <= (
-                self.emp.htail.planform.S
-                * self.emp.htail.lh/self.wing.planform.S
-                / self.wing.planform.cmac),
-            self.emp.vtail.Vv <= (
-                self.emp.vtail.planform.S
-                * self.emp.vtail.lv/self.wing.planform.S
-                / self.wing.planform.b),
-            self.emp.tailboom.d0 <= (
-                self.wing.planform.tau*self.wing.planform.croot)
+            self.solarcells["S"]/self.solarcells["m_{fac}"] <= Sw,
+            Vh <= Sh*lh/Sw/cmac,
+            Vv <= Sv*lv/Sw/b,
+            d0 <= tau*croot,
             ]
 
         if self.fuseModel:
@@ -94,9 +117,7 @@ class Aircraft(Model):
                                             self.solarcells], "W"))),
                 Wcent >= (Wpay + Wavn +
                           sum(summing_vars([self.emp, self.motor], "W"))),
-                self.battery["\\mathcal{V}"] <= (
-                    self.wing.planform.cmac**2*0.5*self.wing.planform.tau
-                    * self.wing.planform.b)
+                self.battery["\\mathcal{V}"] <= cmac**2*0.5*tau*b
                 ])
 
         constraints.extend([Wtotal >= (
@@ -303,9 +324,9 @@ class FlightSegment(Model):
         self.loading[1].substitutions[self.loading[1].vgust] = 5
         self.loading[1].substitutions[self.loading[1].Nmax] = 2
 
-        constraints = [self.aircraft["W_{cent}"] == self.loading[0].W,
-                       self.aircraft["W_{cent}"] == self.loading[1].W,
-                       self.aircraft["W_{wing}"] == self.loading[1].Ww,
+        constraints = [self.aircraft.Wcent == self.loading[0].W,
+                       self.aircraft.Wcent == self.loading[1].W,
+                       self.aircraft.Wwing == self.loading[1].Ww,
                        self.fs["V"] == self.loading[1].v,
                        self.aircraftPerf.wing.CL == self.loading[1].cl,
                       ]
@@ -325,7 +346,7 @@ class SteadyLevelFlight(Model):
         S = self.S = aircraft.wing.planform.S
 
         constraints = [
-            aircraft["W_{total}"] <= (
+            aircraft.Wtotal <= (
                 0.5*state["\\rho"]*state["V"]**2*CL*S),
             T >= (0.5*state["\\rho"]*state["V"]**2*perf["C_D"]*S),
             perf["P_{shaft}"] >= T*state["V"]/etaprop]
@@ -362,5 +383,5 @@ def test():
 if __name__ == "__main__":
     M = Mission(latitude=[20], sp=False)
     del M.substitutions[M.solar.wing.planform.tau]
-    M.cost = M["W_{total}"]
+    M.cost = M[M.solar.Wtotal]
     sol = M.solve("mosek")
