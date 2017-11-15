@@ -148,14 +148,23 @@ class Battery(Model):
         return constraints
 
 class SolarCells(Model):
-    "solar cell model"
+    """solar cell model
+
+    Upper Unbounded
+    ---------------
+    W
+
+    Lower Unbounded
+    ---------------
+    S
+    """
     def setup(self):
 
         rhosolar = Variable("\\rho_{solar}", 0.27, "kg/m^2",
                             "solar cell area density")
         g = Variable("g", 9.81, "m/s**2", "gravitational constant")
-        S = Variable("S", "ft**2", "solar cell area")
-        W = Variable("W", "lbf", "solar cell weight")
+        S = self.S = Variable("S", "ft**2", "solar cell area")
+        W = self.W = Variable("W", "lbf", "solar cell weight")
         etasolar = Variable("\\eta", 0.22, "-", "solar cell efficiency")
         mfac = Variable("m_{fac}", 1.0, "-", "solar cell area margin")
 
