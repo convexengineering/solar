@@ -29,10 +29,10 @@ class Aircraft(Model):
     def setup(self, sp=False):
 
         self.sp = sp
-        self.empennage = Empennage()
+        self.emp = Empennage()
         self.solarcells = SolarCells()
         if sp:
-            WingSP.sparModel = CapSpar
+            WingSP.sparModel = BoxSpar
             WingSP.fillModel = None
             self.wing = WingSP()
         else:
@@ -43,12 +43,12 @@ class Aircraft(Model):
         self.motor = Motor()
 
         self.components = [self.solarcells, self.wing, self.battery,
-                           self.empennage, self.motor]
+                           self.emp, self.motor]
         loading = []
         if sp:
             tbstate = TailBoomState()
-            loading = TailBoomFlexibility(self.empennage.htail,
-                                          self.empennage.tailboom,
+            loading = TailBoomFlexibility(self.emp.htail,
+                                          self.emp.tailboom,
                                           self.wing, tbstate)
 
         Wpay = Variable("W_{pay}", 10, "lbf", "payload weight")
@@ -57,25 +57,25 @@ class Aircraft(Model):
         Wwing = Variable("W_{wing}", "lbf", "wing weight")
         Wcent = Variable("W_{cent}", "lbf", "center weight")
 
-        self.empennage.substitutions["V_v"] = 0.04
-        self.wing.substitutions[self.wing.topvar("m_{fac}")] = 1.1
+        self.emp.substitutions[self.emp.vtail.Vv] = 0.04
+        self.wing.substitutions[self.wing.mfac] = 1.1
 
         if not sp:
-            self.empennage.substitutions["V_h"] = 0.45
-            self.empennage.substitutions["m_h"] = 0.1
+            self.emp.substitutions[self.emp.htail.Vh] = 0.45
+            self.emp.substitutions[self.emp.htail.mh] = 0.1
 
         constraints = [
-            self.solarcells["S"]/self.solarcells["m_{fac}"] <= self.wing["S"],
-            self.empennage.htail["V_h"] <= (
-                self.empennage.htail["S"]
-                * self.empennage.htail["l_h"]/self.wing["S"]**2
-                * self.wing["b"]),
-            self.empennage.vtail["V_v"] <= (
-                self.empennage.vtail["S"]
-                * self.empennage.vtail["l_v"]/self.wing["S"]
-                / self.wing["b"]),
-            self.empennage.tailboom["d_0"] <= (
-                self.wing["\\tau"]*self.wing["c_{root}"])
+            self.solarcells["S"]/self.solarcells["m_{fac}"] <= self.wing.planform.S,
+            self.emp.htail.Vh <= (
+                self.emp.htail.planform.S
+                * self.emp.htail.lh/self.wing.planform.S
+                / self.wing.planform.cmac),
+            self.emp.vtail.Vv <= (
+                self.emp.vtail.planform.S
+                * self.emp.vtail.lv/self.wing.planform.S
+                / self.wing.planform.b),
+            self.emp.tailboom.d0 <= (
+                self.wing.planform.tau*self.wing.planform.croot)
             ]
 
         if self.fuseModel:
@@ -83,8 +83,8 @@ class Aircraft(Model):
             self.components.extend([self.fuselage])
             constraints.extend([
                 self.battery["\\mathcal{V}"] <= self.fuselage["\\mathcal{V}"],
-                Wwing >= self.wing.topvar("W") + self.solarcells["W"],
-                Wcent >= (Wpay + Wavn + self.empennage.topvar("W")
+                Wwing >= self.wing.W + self.solarcells["W"],
+                Wcent >= (Wpay + Wavn + self.emp.W
                           + self.motor["W"] + self.fuselage["W"]
                           + self.battery["W"]),
                 ])
@@ -93,10 +93,10 @@ class Aircraft(Model):
                 Wwing >= (sum(summing_vars([self.wing, self.battery,
                                             self.solarcells], "W"))),
                 Wcent >= (Wpay + Wavn +
-                          sum(summing_vars([self.empennage, self.motor], "W"))),
+                          sum(summing_vars([self.emp, self.motor], "W"))),
                 self.battery["\\mathcal{V}"] <= (
-                    self.wing["c_{MAC}"]**2*0.5*self.wing["\\tau"]
-                    * self.wing["b"])
+                    self.wing.planform.cmac**2*0.5*self.wing.planform.tau
+                    * self.wing.planform.b)
                 ])
 
         constraints.extend([Wtotal >= (
@@ -167,27 +167,23 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(static.wing, state, fitdata="dai1336a.csv")
-        self.htail = static.empennage.htail.flight_model(static.empennage.htail,
+        self.wing = static.wing.flight_model(static.wing, state,
+                                             fitdata="dai1336a.csv")
+        self.htail = static.emp.htail.flight_model(static.emp.htail, state)
+        self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
+        self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
-        self.vtail = static.empennage.vtail.flight_model(static.empennage.vtail,
-                                                         state)
-        self.tailboom = static.empennage.tailboom.flight_model(state)
 
         self.flight_models = [self.wing, self.htail, self.vtail,
                               self.tailboom]
-        areadragmodel = [self.htail, self.vtail, self.tailboom]
-        areadragcomps = [static.empennage.htail,
-                         static.empennage.vtail,
-                         static.empennage.tailboom]
 
         self.wing.substitutions["e"] = 0.95
+        dvars = [self.htail.Cd, self.vtail.Cd, self.tailboom.Cf]
 
         if static.fuseModel:
             self.fuse = static.fuselage.flight_model(state)
-            areadragmodel.extend([self.fuse])
-            areadragcomps.extend([static.fuselage])
             self.flight_models.extend([self.fuse])
+            dvars.append(self.fuse["C_d"])
 
         CD = Variable("C_D", "-", "aircraft drag coefficient")
         cda = Variable("CDA", "-", "non-wing drag coefficient")
@@ -195,13 +191,6 @@ class AircraftPerf(Model):
         Pavn = Variable("P_{avn}", 0.0, "W", "Accessory power draw")
         Poper = Variable("P_{oper}", "W", "operating power")
         mfac = Variable("m_{fac}", 1.05, "-", "drag margin factor")
-
-        dvars = []
-        for dc, dm in zip(areadragcomps, areadragmodel):
-            if "C_d" in dm.varkeys:
-                dvars.append(dm["C_d"]*dc["S"]/static.wing["S"])
-            elif "C_f" in dm.varkeys:
-                dvars.append(dm["C_f"]*dc["S"]/static.wing["S"])
 
         constraints = [
             state["(E/S)_{irr}"] >= (
@@ -216,7 +205,7 @@ class AircraftPerf(Model):
             Poper == (state["(P/S)_{min}"]*static.solarcells["S"]
                       * static.solarcells["\\eta"]),
             cda >= sum(dvars),
-            CD/mfac >= cda + self.wing["C_d"],
+            CD/mfac >= cda + self.wing.Cd,
             Poper <= static.motor["P_{max}"]
             ]
 
@@ -301,15 +290,15 @@ class FlightSegment(Model):
             self.aircraft.wing.spar.loading(self.aircraft.wing),
             self.aircraft.wing.spar.gustloading(self.aircraft.wing)]
 
-        self.loading[0].substitutions["N_{max}"] = 5
-        self.loading[1].substitutions["V_{gust}"] = 5
-        self.loading[1].substitutions["N_{max}"] = 2
+        self.loading[0].substitutions[self.loading[0].Nmax] = 5
+        self.loading[1].substitutions[self.loading[1].vgust] = 5
+        self.loading[1].substitutions[self.loading[1].Nmax] = 2
 
-        constraints = [self.aircraft["W_{cent}"] == self.loading[0]["W"],
-                       self.aircraft["W_{cent}"] == self.loading[1]["W"],
-                       self.aircraft["W_{wing}"] == self.loading[1]["W_w"],
-                       self.fs["V"] == self.loading[1]["V"],
-                       self.aircraftPerf["C_L"] == self.loading[1]["c_l"],
+        constraints = [self.aircraft["W_{cent}"] == self.loading[0].W,
+                       self.aircraft["W_{cent}"] == self.loading[1].W,
+                       self.aircraft["W_{wing}"] == self.loading[1].Ww,
+                       self.fs["V"] == self.loading[1].v,
+                       self.aircraftPerf.wing.CL == self.loading[1].cl,
                       ]
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
@@ -323,12 +312,13 @@ class SteadyLevelFlight(Model):
         T = Variable("T", "N", "thrust")
         etaprop = Variable("\\eta_{prop}", 0.8, "-", "propeller efficiency")
 
+        CL = self.CL = perf.wing.CL
+        S = self.S = aircraft.wing.planform.S
+
         constraints = [
             aircraft["W_{total}"] <= (
-                0.5*state["\\rho"]*state["V"]**2*perf["C_L"]
-                * aircraft.wing["S"]),
-            T >= (0.5*state["\\rho"]*state["V"]**2*perf["C_D"]
-                  *aircraft.wing["S"]),
+                0.5*state["\\rho"]*state["V"]**2*CL*S),
+            T >= (0.5*state["\\rho"]*state["V"]**2*perf["C_D"]*S),
             perf["P_{shaft}"] >= T*state["V"]/etaprop]
 
         return constraints
@@ -362,6 +352,7 @@ def test():
 
 if __name__ == "__main__":
     M = Mission(latitude=[20], sp=False)
-    del M.substitutions[M.solar.wing.planform["\\tau"]]
+    del M.substitutions[M.solar.wing.planform.tau]
     M.cost = M["W_{total}"]
+    print M.solar.emp.tailboom.substitutions
     sol = M.solve("mosek")
