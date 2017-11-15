@@ -130,20 +130,35 @@ class Aircraft(Model):
         return AircraftPerf(self, state)
 
 class Motor(Model):
-    "the thing that provides power"
+    """ Motor Model
+
+    Variables
+    ---------
+    W                   [lbf]       motor weight
+    Pmax                [W]         max power
+    Bpm     4140.8      [W/kg]      power mass ratio
+    m                   [kg]        motor mass
+    g       9.81        [m/s**2]    gravitational constant
+    eta     0.95        [-]         motor efficiency
+
+    Upper Unbounded
+    ---------------
+    W
+
+    Lower Unbounded
+    ---------------
+    Pmax
+
+    LaTex Strings
+    -------------
+    Pmax        P_{\\mathrm{max}}
+    Bpm         B_{\\mathrm{PM}}
+    eta         \\eta
+
+    """
     def setup(self):
-
-        W = Variable("W", "lbf", "motor weight")
-        Pmax = Variable("P_{max}", "W", "max power")
-        Bpm = Variable("B_{PM}", 4140.8, "W/kg", "power mass ratio")
-        m = Variable("m", "kg", "motor mass")
-        g = Variable("g", 9.81, "m/s**2", "gravitational constant")
-        eta = Variable("\\eta", 0.95, "-", "motor efficiency")
-
-        constraints = [Pmax == Bpm*m,
-                       W >= m*g]
-
-        return constraints
+        exec parse_variables(Motor.__doc__)
+        return [Pmax <= Bpm*m, W >= m*g]
 
 class Battery(Model):
     "battery model"
@@ -231,12 +246,12 @@ class AircraftPerf(Model):
                 Poper*state["t_{night}"]
                 + state["(E/S)_C"]*static.solarcells["\\eta"]
                 * static.solarcells["S"]),
-            Poper >= Pavn + Pshaft/static.motor["\\eta"],
+            Poper >= Pavn + Pshaft/static.motor.eta,
             Poper == (state["(P/S)_{min}"]*static.solarcells["S"]
                       * static.solarcells["\\eta"]),
             cda >= sum(dvars),
             CD/mfac >= cda + self.wing.Cd,
-            Poper <= static.motor["P_{max}"]
+            Poper <= static.motor.Pmax
             ]
 
         return self.flight_models, constraints
