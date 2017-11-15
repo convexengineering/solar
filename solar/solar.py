@@ -212,8 +212,8 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(static.wing, state,
-                                             fitdata="dai1336a.csv")
+        self.wing = static.wing.flight_model(
+            static.wing, state, fitdata=os.path.dirname(os.path.abspath(__file__)) + os.sep + "dai1336a.csv")
         self.htail = static.emp.htail.flight_model(static.emp.htail, state)
         self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
         self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
