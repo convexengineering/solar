@@ -36,7 +36,7 @@ class Aircraft(Model):
             WingSP.fillModel = None
             self.wing = WingSP()
         else:
-            WingGP.sparModel = CapSpar
+            WingGP.sparModel = BoxSpar
             WingGP.fillModel = None
             self.wing = WingGP()
         self.battery = Battery()
@@ -178,7 +178,7 @@ class AircraftPerf(Model):
                               self.tailboom]
 
         self.wing.substitutions["e"] = 0.95
-        dvars = [self.htail.Cd, self.vtail.Cd, self.tailboom.Cf]
+        dvars = [self.htail.Cd*static.emp.htail.planform.S/static.wing.planform.S, self.vtail.Cd*static.emp.vtail.planform.S/static.wing.planform.S, self.tailboom.Cf*static.emp.tailboom.S/static.wing.planform.S]
 
         if static.fuseModel:
             self.fuse = static.fuselage.flight_model(state)
@@ -354,5 +354,4 @@ if __name__ == "__main__":
     M = Mission(latitude=[20], sp=False)
     del M.substitutions[M.solar.wing.planform.tau]
     M.cost = M["W_{total}"]
-    print M.solar.emp.tailboom.substitutions
     sol = M.solve("mosek")
