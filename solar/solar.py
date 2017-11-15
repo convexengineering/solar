@@ -2,7 +2,8 @@
 #pylint: disable=attribute-defined-outside-init, invalid-name, unused-variable
 #pylint: disable=too-many-locals, redefined-variable-type
 #pylint: disable=too-many-instance-attributes
-import os
+from os.path import abspath, dirname
+from os import sep
 import pandas as pd
 import numpy as np
 import gassolar.environment
@@ -21,7 +22,7 @@ from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels.tools.summing_constraintset import summing_vars
 from gpfit.fit_constraintset import FitCS as FCS
 
-path = os.path.dirname(gassolar.environment.__file__)
+path = dirname(gassolar.environment.__file__)
 
 class Aircraft(Model):
     """ Aircraft Model
@@ -212,8 +213,8 @@ class AircraftPerf(Model):
     "aircraft performance"
     def setup(self, static, state):
 
-        self.wing = static.wing.flight_model(
-            static.wing, state, fitdata=os.path.dirname(os.path.abspath(__file__)) + os.sep + "dai1336a.csv")
+        fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
+        self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
         self.htail = static.emp.htail.flight_model(static.emp.htail, state)
         self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
         self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
@@ -270,7 +271,7 @@ class FlightState(Model):
     def setup(self, latitude=45, day=355):
 
         month = get_month(day)
-        df = pd.read_csv(path + os.sep + "windfits" + month +
+        df = pd.read_csv(path + sep + "windfits" + month +
                          "/windaltfit_lat%d.csv" % latitude).to_dict(
                              orient="records")[0]
         with StdoutCaptured(None):
