@@ -318,8 +318,8 @@ class FlightState(Model):
     ---------
     Vwind                   [m/s]       wind velocity
     V                       [m/s]       true airspeed
-    rho                     [kg/m**3]   air density
-    mu          1.42e-5     [N*s/m**2]  viscosity
+    rho                     [kg/m^3]    air density
+    mu          1.42e-5     [N*s/m^2]   viscosity
     ESirr       self.esirr  [W*hr/m^2]  solar energy
     PSmin                   [W/m^2]     minimum necessary solar power
     ESday                   [W*hr/m^2]  solar cells energy during daytime
@@ -329,7 +329,7 @@ class FlightState(Model):
     tnight      self.tn     [hr]        night duration
     pct         0.9         [-]         percentile wind speeds
     Vwindref    100.0       [m/s]       reference wind speed
-    rhoref      1.0         [kg/m**3]   reference air density
+    rhoref      1.0         [kg/m^3]    reference air density
     mfac        1.0         [-]         wind speed margin factor
 
     LaTex Strings
