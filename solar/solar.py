@@ -411,22 +411,28 @@ class FlightSegment(Model):
         return constraints, self.submodels
 
 class SteadyLevelFlight(Model):
-    "steady level flight model"
+    """ steady level flight model
+
+    Variables
+    ---------
+    T                       [N]     thrust
+    etaprop         0.8     [-]     propeller efficiency
+
+    """
     def setup(self, state, aircraft, perf):
+        exec parse_variables(SteadyLevelFlight.__doc__)
 
-        T = Variable("T", "N", "thrust")
-        etaprop = Variable("\\eta_{prop}", 0.8, "-", "propeller efficiency")
-
+        Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.wing.CL
+        CD = self.CD = perf.CD
+        Pshaft = self.Pshaft = perf.Pshaft
         S = self.S = aircraft.wing.planform.S
+        rho = self.rho = state.rho
+        V = self.V = state.V
 
-        constraints = [
-            aircraft.Wtotal <= (
-                0.5*state.rho*state.V**2*CL*S),
-            T >= (0.5*state.rho*state.V**2*perf.CD*S),
-            perf.Pshaft >= T*state.V/etaprop]
-
-        return constraints
+        return [Wtotal <= (0.5*rho*V**2*CL*S),
+                T >= 0.5*rho*V**2*CD*S,
+                Pshaft >= T*V/etaprop]
 
 class Mission(Model):
     "define mission for aircraft"
