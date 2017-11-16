@@ -87,6 +87,7 @@ class Aircraft(Model):
         Sv = self.Sv = self.emp.vtail.planform.S
         lv = self.lv = self.emp.vtail.lv
         d0 = self.d0 = self.emp.tailboom.d0
+        Volbatt = self.Volbatt = self.battery.Volbatt
 
         self.emp.substitutions[Vv] = 0.04
         self.wing.substitutions[self.wing.mfac] = 1.1
@@ -106,11 +107,11 @@ class Aircraft(Model):
             self.fuselage = self.fuseModel()
             self.components.extend([self.fuselage])
             constraints.extend([
-                self.battery["\\mathcal{V}"] <= self.fuselage["\\mathcal{V}"],
+                Volbatt <= self.fuselage["\\mathcal{V}"],
                 Wwing >= self.wing.W + self.solarcells["W"],
                 Wcent >= (Wpay + Wavn + self.emp.W
-                          + self.motor["W"] + self.fuselage["W"]
-                          + self.battery["W"]),
+                          + self.motor.W + self.fuselage["W"]
+                          + self.battery.W),
                 ])
         else:
             constraints.extend([
@@ -118,7 +119,7 @@ class Aircraft(Model):
                                             self.solarcells], "W"))),
                 Wcent >= (Wpay + Wavn +
                           sum(summing_vars([self.emp, self.motor], "W"))),
-                self.battery["\\mathcal{V}"] <= cmac**2*0.5*tau*b
+                Volbatt <= cmac**2*0.5*tau*b
                 ])
 
         constraints.extend([Wtotal >= (
@@ -162,27 +163,39 @@ class Motor(Model):
         return [Pmax <= Bpm*m, W >= m*g]
 
 class Battery(Model):
-    "battery model"
+    """ Battery Model
+
+    Variables
+    ---------
+    W                               [lbf]        battery weight
+    etacharge           0.98        [-]          charging efficiency
+    etadischarge        0.98        [-]          discharging efficiency
+    E                               [J]          total battery energy
+    g                   9.81        [m/s**2]     gravitational constant
+    hbatt               350         [W*hr/kg]    battery specific energy
+    vbatt               800         [W*hr/l]     volume battery energy density
+    Volbatt                         [m**3]       battery volume
+
+    Upper Unbounded
+    ---------------
+    W, Volbatt
+
+    Lower Unbounded
+    ---------------
+    E
+
+    LaTex Strings
+    -------------
+    eta_charge          \\eta_{\\mathrm{charge}}
+    eta_discharge       \\eta_{\\mathrm{discharge}}
+    hbatt               h_{\\mathrm{batt}}
+    vbatt               (EV)_{\\mathrm{batt}}
+    Volbatt             \\mathcal{V}_{\\mathrm{batt}}
+
+    """
     def setup(self):
-
-        W = Variable("W", "lbf", "battery weight")
-        eta_charge = Variable("\\eta_{charge}", 0.98, "-",
-                              "charging efficiency")
-        eta_discharge = Variable("\\eta_{discharge}", 0.98, "-",
-                                 "discharging efficiency")
-        E = Variable("E", "J", "total battery energy")
-        g = Variable("g", 9.81, "m/s**2", "gravitational constant")
-        hbatt = Variable("h_{batt}", 350, "W*hr/kg", "battery specific energy")
-        vbatt = Variable("(E/\\mathcal{V})", 800, "W*hr/l",
-                         "volume battery energy density")
-        Volbatt = Variable("\\mathcal{V}", "m**3", "battery volume")
-
-        constraints = [W >= E/hbatt*g,
-                       Volbatt >= E/vbatt,
-                       eta_charge == eta_charge,
-                       eta_discharge == eta_discharge]
-
-        return constraints
+        exec parse_variables(Battery.__doc__)
+        return [W >= E/hbatt*g, Volbatt >= E/vbatt]
 
 class SolarCells(Model):
     """solar cell model
@@ -240,10 +253,10 @@ class AircraftPerf(Model):
 
         constraints = [
             state["(E/S)_{irr}"] >= (
-                state["(E/S)_{day}"] + static.battery["E"]
-                / static.battery["\\eta_{charge}"]
+                state["(E/S)_{day}"] + static.battery.E
+                / static.battery.etacharge
                 / static.solarcells["\\eta"]/static.solarcells["S"]),
-            static.battery["E"]*static.battery["\\eta_{discharge}"] >= (
+            static.battery.E*static.battery.etadischarge >= (
                 Poper*state["t_{night}"]
                 + state["(E/S)_C"]*static.solarcells["\\eta"]
                 * static.solarcells["S"]),
