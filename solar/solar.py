@@ -230,8 +230,29 @@ class SolarCells(Model):
         return [W >= rhosolar*S*g]
 
 class AircraftPerf(Model):
-    "aircraft performance"
+    """ Aircaft Performance
+
+    Variables
+    ---------
+    CD                  [-]     aircraft drag coefficient
+    cda                 [-]     non-wing drag coefficient
+    Pshaft              [hp]    shaft power
+    Pavn        0.0     [W]     accessory power draw
+    Poper               [W]     operating power
+    mfac        1.05    [-]     drag margin factor
+
+
+    LaTex Strings
+    -------------
+    CD          C_D
+    cda         CDA
+    Pshaft      P_{\\mathrm{shaft}}
+    Pavn        P_{\\mathrm{avn}}
+    Poper       P_{\\mathrm{oper}}
+    mfac        m_{\\mathrm{fac}}
+    """
     def setup(self, static, state):
+        exec parse_variables(AircraftPerf.__doc__)
 
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
         self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
@@ -242,36 +263,42 @@ class AircraftPerf(Model):
 
         self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom]
 
-        self.wing.substitutions["e"] = 0.95
-        dvars = [self.htail.Cd*static.emp.htail.planform.S/static.wing.planform.S, self.vtail.Cd*static.emp.vtail.planform.S/static.wing.planform.S, self.tailboom.Cf*static.emp.tailboom.S/static.wing.planform.S]
+        e = self.e = self.wing.e
+        cdht = self.cdht = self.htail.Cd
+        cdvt = self.cdvt = self.vtail.Cd
+        Sh = self.Sh = static.Sh
+        Sv = self.Sv = static.Sv
+        Sw = self.Sw = static.Sw
+        cftb = self.cftb = self.tailboom.Cf
+        Stb = self.Stb = static.emp.tailboom.S
+        E = self.E = static.battery.E
+        etacharge = self.etacharge = static.battery.etacharge
+        etadischarge = self.etadischarge = static.battery.etadischarge
+        etasolar = self.etasolar = static.solarcells.etasolar
+        Ssolar = self.Ssolar = static.Ssolar
+        etamotor = self.etamotor = static.motor.eta
+        Pmax = self.Pmax = static.motor.Pmax
+        cdw = self.cdw = self.wing.Cd
+
+        self.wing.substitutions[e] = 0.95
+
+        dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
 
         if static.fuseModel:
             self.fuse = static.fuselage.flight_model(state)
             self.flight_models.extend([self.fuse])
             dvars.append(self.fuse["C_d"])
 
-        CD = Variable("C_D", "-", "aircraft drag coefficient")
-        cda = Variable("CDA", "-", "non-wing drag coefficient")
-        Pshaft = Variable("P_{shaft}", "hp", "shaft power")
-        Pavn = Variable("P_{avn}", 0.0, "W", "Accessory power draw")
-        Poper = Variable("P_{oper}", "W", "operating power")
-        mfac = Variable("m_{fac}", 1.05, "-", "drag margin factor")
-
         constraints = [
             state["(E/S)_{irr}"] >= (
-                state["(E/S)_{day}"] + static.battery.E
-                / static.battery.etacharge
-                / static.solarcells.etasolar/static.solarcells.S),
-            static.battery.E*static.battery.etadischarge >= (
-                Poper*state["t_{night}"]
-                + state["(E/S)_C"]*static.solarcells.etasolar
-                * static.solarcells.S),
-            Poper >= Pavn + Pshaft/static.motor.eta,
-            Poper == (state["(P/S)_{min}"]*static.solarcells.S
-                      * static.solarcells.etasolar),
-            cda >= sum(dvars),
-            CD/mfac >= cda + self.wing.Cd,
-            Poper <= static.motor.Pmax
+                state["(E/S)_{day}"] + E/etacharge/etasolar/Ssolar),
+            E*etadischarge >= (Poper*state["t_{night}"]
+                               + state["(E/S)_C"]*etasolar*Ssolar),
+            Poper >= Pavn + Pshaft/etamotor,
+            Poper == state["(P/S)_{min}"]*Ssolar*etasolar,
+            cda >= cdht*Sh/Sw + cdvt*Sv/Sw + cftb*Stb/Sw,
+            CD/mfac >= cda + cdw,
+            Poper <= Pmax
             ]
 
         return self.flight_models, constraints
@@ -383,8 +410,8 @@ class SteadyLevelFlight(Model):
         constraints = [
             aircraft.Wtotal <= (
                 0.5*state["\\rho"]*state["V"]**2*CL*S),
-            T >= (0.5*state["\\rho"]*state["V"]**2*perf["C_D"]*S),
-            perf["P_{shaft}"] >= T*state["V"]/etaprop]
+            T >= (0.5*state["\\rho"]*state["V"]**2*perf.CD*S),
+            perf.Pshaft >= T*state["V"]/etaprop]
 
         return constraints
 
