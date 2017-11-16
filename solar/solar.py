@@ -279,6 +279,11 @@ class AircraftPerf(Model):
         etamotor = self.etamotor = static.motor.eta
         Pmax = self.Pmax = static.motor.Pmax
         cdw = self.cdw = self.wing.Cd
+        ESirr = self.ESirr = state.ESirr
+        ESday = self.ESday = state.ESday
+        EStwi = self.EStwi = state.EStwi
+        tnight = self.tnight = state.tnight
+        PSmin = self.PSmin = state.PSmin
 
         self.wing.substitutions[e] = 0.95
 
@@ -290,12 +295,10 @@ class AircraftPerf(Model):
             dvars.append(self.fuse["C_d"])
 
         constraints = [
-            state["(E/S)_{irr}"] >= (
-                state["(E/S)_{day}"] + E/etacharge/etasolar/Ssolar),
-            E*etadischarge >= (Poper*state["t_{night}"]
-                               + state["(E/S)_C"]*etasolar*Ssolar),
+            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
+            E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
             Poper >= Pavn + Pshaft/etamotor,
-            Poper == state["(P/S)_{min}"]*Ssolar*etasolar,
+            Poper == PSmin*Ssolar*etasolar,
             cda >= cdht*Sh/Sw + cdvt*Sv/Sw + cftb*Stb/Sw,
             CD/mfac >= cda + cdw,
             Poper <= Pmax
@@ -304,17 +307,53 @@ class AircraftPerf(Model):
         return self.flight_models, constraints
 
 class FlightState(Model):
-    """
-    environmental state of aircraft
+    """Flight State (wind speed, solar irradiance, atmosphere)
 
-    inputs
+    Arguments
     ------
-    latitude: earth latitude [deg]
-    altitude: flight altitude [ft]
-    percent: percentile wind speeds [%]
-    day: day of the year [Jan 1st = 1]
+    latitude        [deg]       earth latitude
+    day                         day of the year [Jan 1st = 1]
+
+    Variables
+    ---------
+    Vwind                   [m/s]       wind velocity
+    V                       [m/s]       true airspeed
+    rho                     [kg/m**3]   air density
+    mu          1.42e-5     [N*s/m**2]  viscosity
+    ESirr       self.esirr  [W*hr/m^2]  solar energy
+    PSmin                   [W/m^2]     minimum necessary solar power
+    ESday                   [W*hr/m^2]  solar cells energy during daytime
+    EStwi                   [W*hr/m^2]  twilight required battery energy
+    ESvar       1           [W*hr/m^2]  energy units variable
+    PSvar       1           [W/m^2]     power units variable
+    tnight      self.tn     [hr]        night duration
+    pct         0.9         [-]         percentile wind speeds
+    Vwindref    100.0       [m/s]       reference wind speed
+    rhoref      1.0         [kg/m**3]   reference air density
+    mfac        1.0         [-]         wind speed margin factor
+
+    LaTex Strings
+    -------------
+    Vwind       V_{\\mathrm{wind}}}
+    V           V
+    rho         \\rho
+    mu          \\mu
+    ESirr       (E/S)_{\\mathrm{irr}}
+    PSmin       (P/S)_{\\mathrm{min}}
+    ESday       (E/S)_{\\mathrm{day}}
+    EStwi       (E/S)_{\\mathrm{twi}}
+    ESvar       (E/S)_{\\mathrm{ref}}
+    PSvar       (P/S)_{\\mathrm{ref}}
+    tnight      t_{\\mathrm{night}}
+    pct         p_{\\mathrm{wind}}
+    Vwindref    V_{\\mathrm{wind-ref}}
+    rhoref      \\rho_{\\mathrm{ref}}
+    mfac        m_{\\mathrm{fac}}
+
     """
     def setup(self, latitude=45, day=355):
+        self.esirr, _, self.tn, _ = get_Eirr(latitude, day)
+        exec parse_variables(FlightState.__doc__)
 
         month = get_month(day)
         df = pd.read_csv(path + sep + "windfits" + month +
@@ -322,38 +361,12 @@ class FlightState(Model):
                              orient="records")[0]
         with StdoutCaptured(None):
             dft, dfd = twi_fits(latitude, day, gen=True)
-        esirr, _, tn, _ = get_Eirr(latitude, day)
 
-        Vwind = Variable("V_{wind}", "m/s", "wind velocity")
-        V = Variable("V", "m/s", "true airspeed")
-        rho = Variable("\\rho", "kg/m**3", "air density")
-        mu = Variable("\\mu", 1.42e-5, "N*s/m**2", "viscosity")
-        ESirr = Variable("(E/S)_{irr}", esirr, "W*hr/m^2",
-                         "solar energy")
-        PSmin = Variable("(P/S)_{min}", "W/m^2",
-                         "minimum necessary solar power")
-        ESday = Variable("(E/S)_{day}", "W*hr/m^2",
-                         "solar cells energy during daytime")
-        ESc = Variable("(E/S)_C", "W*hr/m^2",
-                       "energy for batteries during sunrise/set")
-        ESvar = Variable("(E/S)_{ref}", 1, "W*hr/m^2", "energy units variable")
-        PSvar = Variable("(P/S)_{ref}", 1, "W/m^2", "power units variable")
-        tnight = Variable("t_{night}", tn, "hr", "night duration")
-        pct = Variable("p_{wind}", 0.9, "-", "percentile wind speeds")
-        Vwindref = Variable("V_{wind-ref}", 100.0, "m/s",
-                            "reference wind speed")
-        rhoref = Variable("\\rho_{ref}", 1.0, "kg/m**3",
-                          "reference air density")
-        mfac = Variable("m_{fac}", 1.0, "-", "wind speed margin factor")
-
-        constraints = [
-            V/mfac >= Vwind,
-            FCS(df, Vwind/Vwindref, [rho/rhoref, pct]),
-            FCS(dfd, ESday/ESvar, [PSmin/PSvar]),
-            FCS(dft, ESc/ESvar, [PSmin/PSvar]),
-            ]
-
-        return constraints
+        return [V/mfac >= Vwind,
+                FCS(df, Vwind/Vwindref, [rho/rhoref, pct]),
+                FCS(dfd, ESday/ESvar, [PSmin/PSvar]),
+                FCS(dft, EStwi/ESvar, [PSmin/PSvar]),
+               ]
 
 def altitude(density):
     " find air density "
@@ -409,9 +422,9 @@ class SteadyLevelFlight(Model):
 
         constraints = [
             aircraft.Wtotal <= (
-                0.5*state["\\rho"]*state["V"]**2*CL*S),
-            T >= (0.5*state["\\rho"]*state["V"]**2*perf.CD*S),
-            perf.Pshaft >= T*state["V"]/etaprop]
+                0.5*state.rho*state.V**2*CL*S),
+            T >= (0.5*state.rho*state.V**2*perf.CD*S),
+            perf.Pshaft >= T*state.V/etaprop]
 
         return constraints
 
