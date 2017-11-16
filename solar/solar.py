@@ -88,6 +88,8 @@ class Aircraft(Model):
         lv = self.lv = self.emp.vtail.lv
         d0 = self.d0 = self.emp.tailboom.d0
         Volbatt = self.Volbatt = self.battery.Volbatt
+        Ssolar = self.Ssolar = self.solarcells.S
+        mfsolar = self.mfsolar = self.solarcells.mfac
 
         self.emp.substitutions[Vv] = 0.04
         self.wing.substitutions[self.wing.mfac] = 1.1
@@ -96,12 +98,11 @@ class Aircraft(Model):
             self.emp.substitutions[self.emp.htail.mh] = 0.1
 
 
-        constraints = [
-            self.solarcells["S"]/self.solarcells["m_{fac}"] <= Sw,
-            Vh <= Sh*lh/Sw/cmac,
-            Vv <= Sv*lv/Sw/b,
-            d0 <= tau*croot,
-            ]
+        constraints = [Ssolar*mfsolar <= Sw,
+                       Vh <= Sh*lh/Sw/cmac,
+                       Vv <= Sv*lv/Sw/b,
+                       d0 <= tau*croot,
+                      ]
 
         if self.fuseModel:
             self.fuselage = self.fuseModel()
@@ -200,6 +201,15 @@ class Battery(Model):
 class SolarCells(Model):
     """solar cell model
 
+    Variables
+    ---------
+    rhosolar            0.27    [kg/m^2]        solar cell area density
+    g                   9.81    [m/s**2]        gravitational constant
+    S                           [ft**2]         solar cell area
+    W                           [lbf]           solar cell weight
+    etasolar            0.22    [-]             solar cell efficiency
+    mfac                1.0     [-]             solar cell area margin
+
     Upper Unbounded
     ---------------
     W
@@ -207,20 +217,17 @@ class SolarCells(Model):
     Lower Unbounded
     ---------------
     S
+
+    LaTex Strings
+    -------------
+    rhosolar        \\rho_{\\mathrm{solar}}
+    etasolar        \\eta_{\\mathrm{solar}}
+    mfac            m_{\\mathrm{fac}}
+
     """
     def setup(self):
-
-        rhosolar = Variable("\\rho_{solar}", 0.27, "kg/m^2",
-                            "solar cell area density")
-        g = Variable("g", 9.81, "m/s**2", "gravitational constant")
-        S = self.S = Variable("S", "ft**2", "solar cell area")
-        W = self.W = Variable("W", "lbf", "solar cell weight")
-        etasolar = Variable("\\eta", 0.22, "-", "solar cell efficiency")
-        mfac = Variable("m_{fac}", 1.0, "-", "solar cell area margin")
-
-        constraints = [W >= rhosolar*S*g]
-
-        return constraints
+        exec parse_variables(SolarCells.__doc__)
+        return [W >= rhosolar*S*g]
 
 class AircraftPerf(Model):
     "aircraft performance"
@@ -233,8 +240,7 @@ class AircraftPerf(Model):
         self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
 
-        self.flight_models = [self.wing, self.htail, self.vtail,
-                              self.tailboom]
+        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom]
 
         self.wing.substitutions["e"] = 0.95
         dvars = [self.htail.Cd*static.emp.htail.planform.S/static.wing.planform.S, self.vtail.Cd*static.emp.vtail.planform.S/static.wing.planform.S, self.tailboom.Cf*static.emp.tailboom.S/static.wing.planform.S]
@@ -255,14 +261,14 @@ class AircraftPerf(Model):
             state["(E/S)_{irr}"] >= (
                 state["(E/S)_{day}"] + static.battery.E
                 / static.battery.etacharge
-                / static.solarcells["\\eta"]/static.solarcells["S"]),
+                / static.solarcells.etasolar/static.solarcells.S),
             static.battery.E*static.battery.etadischarge >= (
                 Poper*state["t_{night}"]
-                + state["(E/S)_C"]*static.solarcells["\\eta"]
-                * static.solarcells["S"]),
+                + state["(E/S)_C"]*static.solarcells.etasolar
+                * static.solarcells.S),
             Poper >= Pavn + Pshaft/static.motor.eta,
-            Poper == (state["(P/S)_{min}"]*static.solarcells["S"]
-                      * static.solarcells["\\eta"]),
+            Poper == (state["(P/S)_{min}"]*static.solarcells.S
+                      * static.solarcells.etasolar),
             cda >= sum(dvars),
             CD/mfac >= cda + self.wing.Cd,
             Poper <= static.motor.Pmax
