@@ -20,10 +20,10 @@ def season(lats):
                 mtows = mtows + [np.nan]*(4-len(mtows))
                 break
             M = Mission(latitude=range(1, l+1, 1), day=d)
-            M.cost = M["W_{total}"]
+            M.cost = M[M.solar.Wtotal]
             try:
                 sol = M.solve("mosek")
-                mtow = sol("W_{total}").magnitude
+                mtow = sol(M.solar.Wtotal).magnitude
                 mtows.append(mtow)
             except RuntimeWarning:
                 mtows.append(np.nan)
