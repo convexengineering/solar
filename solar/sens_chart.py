@@ -43,17 +43,7 @@ def get_highestsens(model, res, varnames=None):
         else:
             uts = ""
 
-        if varnames:
-            for vn in varnames:
-                if vk.descr["name"] == vn:
-                    lbl = varnames[vk.descr["name"]]
-                else:
-                    allname = (vk.descr["name"] + "_" +
-                               "/".join([x for x in vk.descr["models"]]))
-                    if allname == vn:
-                        lbl = varnames[allname]
-        else:
-            lbl = vk.descr["label"]
+        lbl = vk.descr["label"]
         labels.append(lbl + "$ =%.2f$ %s" % (val, uts.replace("*", "")))
         if s[1] > 0:
             pss.append(s[1])
@@ -84,12 +74,12 @@ def plot_chart(sensdict):
 def test():
     " test for integrated testing "
     model = Mission(latitude=[10])
-    model.cost = model["W_{total}"]
+    model.cost = model[model.solar.Wtotal]
     result = model.solve("mosek")
     _ = get_highestsens(model, result)
 
-    vn = {"W_{pay}": "$W_{\\mathrm{pay}}$",
-          "\\eta_{charge}": "$\\eta_{\\mathrm{charge}}$"}
+    vn = {model.solar.Wpay: "$W_{\\mathrm{pay}}$",
+          model.solar.battery.etacharge: "$\\eta_{\\mathrm{charge}}$"}
     _ = get_highestsens(model, result, vn)
 
 if __name__ == "__main__":
@@ -100,16 +90,16 @@ if __name__ == "__main__":
         path = ""
 
     M = Mission(latitude=[25])
-    M.cost = M["W_{total}"]
+    M.cost = M[M.solar.Wtotal]
     sol = M.solve("mosek")
 
-    vns = {"W_{pay}": "$W_{\\mathrm{pay}}$",
-           "\\eta_{charge}": "$\\eta_{\\mathrm{charge}}$",
-           "\\eta_{discharge}": "$\\eta_{\\mathrm{discharge}}$",
-           "h_{batt}": "$h_{\\mathrm{batt}}$",
-           "\\eta_Mission/Aircraft/SolarCells": "$\\eta_{\\mathrm{solar}}$",
-           "N_{max}": "$N_{\\mathrm{max}}$",
-           "e": "$e$", "\\eta_{prop}": "$\\eta_{\\mathrm{prop}}$"}
+    vns = {M.solar.Wpay: "$W_{\\mathrm{pay}}$",
+           M.solar.battery.etacharge: "$\\eta_{\\mathrm{charge}}$",
+           M.solar.battery.etadischarge: "$\\eta_{\\mathrm{discharge}}$",
+           M.solar.battery.hbatt: "$h_{\\mathrm{batt}}$",
+           M.solar.solarcells.etasolar: "$\\eta_{\\mathrm{solar}}$",
+           "Nmax": "$N_{\\mathrm{max}}$",
+           "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
 
     sd = get_highestsens(M, sol, vns)
     f, a = plot_chart(sd)

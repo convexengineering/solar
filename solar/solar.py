@@ -255,13 +255,10 @@ class AircraftPerf(Model):
     def setup(self, static, state):
         exec parse_variables(AircraftPerf.__doc__)
 
-        # fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
         fd = dirname(abspath("dai1336a.csv"))
         if not fd[-5:] == "solar":
             fd += sep + "solar"
         fd += sep + "dai1336a.csv"
-        print os.listdir(abspath(os.curdir))
-        print abspath(os.curdir)
 
         self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
         self.htail = static.emp.htail.flight_model(static.emp.htail, state)
@@ -463,10 +460,10 @@ class Mission(Model):
 def test():
     " test model for continuous integration "
     m = Mission()
-    m.cost = m["W_{total}"]
+    m.cost = m[M.solar.Wtotal]
     m.solve()
     m = Mission(sp=True)
-    m.cost = m["W_{total}"]
+    m.cost = m[M.solar.Wtotal]
     m.localsolve()
 
 if __name__ == "__main__":
