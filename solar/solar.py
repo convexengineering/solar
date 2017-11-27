@@ -460,10 +460,10 @@ class Mission(Model):
 def test():
     " test model for continuous integration "
     m = Mission()
-    m.cost = m[M.solar.Wtotal]
+    m.cost = m[m.solar.Wtotal]
     m.solve()
     m = Mission(sp=True)
-    m.cost = m[M.solar.Wtotal]
+    m.cost = m[m.solar.Wtotal]
     m.localsolve()
 
 if __name__ == "__main__":
