@@ -4,6 +4,7 @@
 #pylint: disable=too-many-instance-attributes
 from os.path import abspath, dirname
 from os import sep
+import os
 import pandas as pd
 import numpy as np
 import gassolar.environment
@@ -256,6 +257,8 @@ class AircraftPerf(Model):
 
         # fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
         fd = abspath("dai1336a.csv")
+        print os.listdir(abspath(os.curdir))
+        print abspath(os.curdir)
         self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
         self.htail = static.emp.htail.flight_model(static.emp.htail, state)
         self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
