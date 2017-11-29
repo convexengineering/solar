@@ -255,10 +255,7 @@ class AircraftPerf(Model):
     def setup(self, static, state):
         exec parse_variables(AircraftPerf.__doc__)
 
-        fd = dirname(abspath("dai1336a.csv"))
-        if not fd[-5:] == "solar":
-            fd += sep + "solar"
-        fd += sep + "dai1336a.csv"
+        fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
 
         self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
         self.htail = static.emp.htail.flight_model(static.emp.htail, state)
