@@ -16,12 +16,15 @@ from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
 from gpkitmodels.GP.aircraft.wing.capspar import CapSpar
+from gpkitmodels.GP.aircraft.wing.wing_skin import WingSkin
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
+from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels.tools.summing_constraintset import summing_vars
 from gpfit.fit_constraintset import FitCS as FCS
+from gpkitmodels.GP.materials.cfrp import CFRPFabric
 
 path = dirname(gassolar.environment.__file__)
 
@@ -54,6 +57,10 @@ class Aircraft(Model):
         exec parse_variables(Aircraft.__doc__)
 
         self.sp = sp
+
+        HorizontalTail.sparModel = BoxSpar
+        HorizontalTail.fillModel = None
+        WingSkin.material = CFRPFabric()
         self.emp = Empennage()
         self.solarcells = SolarCells()
         if sp:
@@ -333,6 +340,7 @@ class FlightState(Model):
     Vwindref    100.0       [m/s]       reference wind speed
     rhoref      1.0         [kg/m^3]    reference air density
     mfac        1.0         [-]         wind speed margin factor
+    rhosl       1.225       [kg/m^3]    sea level air density
 
     LaTex Strings
     -------------
@@ -381,8 +389,15 @@ def altitude(density):
     return h
 
 class FlightSegment(Model):
-    "flight segment"
+    """ Flight Segment
+
+    Variables
+    ---------
+    Vne         30      [m/s]       never exceed velocity
+
+    """
     def setup(self, aircraft, latitude=35, day=355):
+        exec parse_variables(FlightSegment.__doc__)
 
         self.latitude = latitude
         self.day = day
@@ -393,19 +408,27 @@ class FlightSegment(Model):
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
-        self.loading = [
-            self.aircraft.wing.spar.loading(self.aircraft.wing),
-            self.aircraft.wing.spar.gustloading(self.aircraft.wing)]
+        self.wingg = self.aircraft.wing.spar.loading(self.aircraft.wing)
+        self.winggust = self.aircraft.wing.spar.gustloading(self.aircraft.wing)
+        self.htailg = self.aircraft.emp.htail.spar.loading(
+            self.aircraft.emp.htail)
 
-        self.loading[0].substitutions[self.loading[0].Nmax] = 5
-        self.loading[1].substitutions[self.loading[1].vgust] = 5
-        self.loading[1].substitutions[self.loading[1].Nmax] = 2
+        self.loading = [self.wingg, self.winggust, self.htailg]
 
-        constraints = [self.aircraft.Wcent == self.loading[0].W,
-                       self.aircraft.Wcent == self.loading[1].W,
-                       self.aircraft.Wwing == self.loading[1].Ww,
-                       self.fs["V"] == self.loading[1].v,
-                       self.aircraftPerf.wing.CL == self.loading[1].cl,
+        self.wingg.substitutions[self.wingg.Nmax] = 5
+        self.winggust.substitutions[self.winggust.vgust] = 5
+        self.winggust.substitutions[self.winggust.Nmax] = 2
+
+        rhosl = self.fs.rhosl
+        Sh = self.aircraft.emp.htail.planform.S
+        CLhmax = self.aircraft.emp.htail.planform.CLmax
+
+        constraints = [self.aircraft.Wcent == self.wingg.W,
+                       self.aircraft.Wcent == self.winggust.W,
+                       self.aircraft.Wwing == self.winggust.Ww,
+                       self.fs.V == self.winggust.v,
+                       self.aircraftPerf.wing.CL == self.winggust.cl,
+                       self.htailg.W == 0.5*Vne**2*rhosl*Sh*CLhmax
                       ]
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
