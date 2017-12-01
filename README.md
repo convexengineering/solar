@@ -40,11 +40,11 @@ The gassolar repository contains simple gas and solar GP models used to evaluate
 
 ### Understanding the Model
 
-The actual model lives in `./solar/solar.py`.  Running this file will return a dict, `sol`, that constains every variable and it's corresponding optimized value.  The python variable, `M`, is the GP model. 
+The actual model is in `./solar/solar.py`.  Running this file will return a dict, `sol`, that constains every variable and it's corresponding optimized value.  The python variable, `M`, is the GP model and contains all of the submodels used in the optimization. 
 
-Going inside `solar.py`, there are multiple submodels imported from gplibrary and gassolar.  The first created model is `Aircraft`.  This models creates subcomponents such as the wing, empennage, solar cells, many of which are imported from gplibrary. Each submodel, contains a list of constraints specific to that model.  The `Aircraft` model has an aircraft performance `AircraftPerf`, model that is created when a flight segment is created.  This model sums the drag of each component and has constraints relating the solar flux and motor power draw and battery energy.  The `Mission` model creates multiple flight segments depending on how many latitudes are being evaluated. 
+Taking a line by line overview of `solar.py`, there are multiple submodels imported from gplibrary and gassolar.  The first created model is `Aircraft`.  This models creates subcomponents such as the wing, empennage, solar cells, many of which are imported from gplibrary. Each submodel, contains a list of constraints specific to that model.  The `Aircraft` model has an aircraft performance model `AircraftPerf`, that is created when a flight segment is created.  `AircraftPerf` sums the drag of each component and has constraints relating the solar flux, motor power draw and battery energy.  The `Mission` model creates multiple flight segments depending on how many latitudes are being evaluated. 
 
-Each model has a list of Variables that are created when the mission is created.  Variables with no number are free variables that are optimized during a solve.  Variables with a number are parameters and are fixed.  These can be changed to evaluate the model at different parameters. A common way to think about GP optimization is that every variable needs an upper and lower bound.  A variable `x` can be upper bounded minimizing its value in the objective function or including it in a constraint such that it is on the right side of a greater than inequality (i.e. `>= x`).  A lower bound is created by maximizing the value in the objective function or placing it on the left side of a greater than inequality (i.e. `x >=`) in a constraint.  Free variables that are not upper or lower bounded by the constraints unique to that model are identified in that model's docstring.  These variables should be bounded by constraints in a different model or in the objective function. 
+Each model has a list of Variables that are created when the mission is created.  Variables with no number are free variables that are optimized during a solve.  Variables with a number are parameters and are fixed.  These can be changed to evaluate the model at different parameter values. A common way to think about variables in a GP is that every variable needs an upper and lower bound.  A variable `x`, can be upper bounded by minimizing its value in the objective function or including it in a constraint such that it is on the right side of a greater than inequality (i.e. `>= x`).  A lower bound is created by maximizing the value in the objective function or placing it on the left side of a greater than inequality in a constraint (i.e. `x >=`).  Free variables that are not upper or lower bounded by the constraints unique to the model in which they are created are identified in that model's docstring.  These variables should be bounded by constraints in a different model or by the objective function. 
 
 ### Creating and Solving 
 
@@ -69,12 +69,12 @@ sol(M.solar.Wtotal)
 
 ### Changing Parameters and Values
 
-To change any fixed variable and resolve enter 
+To change any fixed variable and resolve, enter 
 ```python
 M.substitutions.update({M.solar.batteries.hbatt: 400})
 sol = M.solve()
 ```
-Notice that each variable can be accessed using the dot notation.  Latitude is not a variable that can be updated in this way.  Because of the descrete wing speed and solar flux equations that vary with latitude different latitudes are evaluated by recreating the model
+Notice that each variable can be accessed using the dot notation.  Latitude is not a variable that can be updated in this way.  Because of the descrete wind speed and solar flux equations that vary with latitude, different latitudes are evaluated by recreating the model
 
 ```python
 M = Mission(latitude=[25])
@@ -92,7 +92,7 @@ Changing parameters may result in an infeasible solution.  If this happens a `PR
 
 ### Changing Configurations
 
-For more experienced users, you can change the configuration by altering the submodels during creation in the `Aircraft` model. For example, to change spar configurations from a `BoxSpar` to a `CapSpar`, change the line in the `Aircraft` model from 
+For more experienced users, you can change the configuration by altering the submodels during creation in the `Aircraft` model. For example, to change spar configuration from a `BoxSpar` to a `CapSpar`, change the line in the `Aircraft` model from 
 
 ```python
 WingGP.sparModel = BoxSpar
