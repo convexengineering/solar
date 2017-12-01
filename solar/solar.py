@@ -58,9 +58,11 @@ class Aircraft(Model):
 
         self.sp = sp
 
+        cfrp = CFRPFabric()
         HorizontalTail.sparModel = BoxSpar
         HorizontalTail.fillModel = None
-        WingSkin.material = CFRPFabric()
+        WingSkin.material = cfrp
+        BoxSpar.shearMaterial = cfrp
         self.emp = Empennage()
         self.solarcells = SolarCells()
         if sp:
