@@ -13,8 +13,10 @@ NOTE: GPkit supports off the shelf solvers.  Given the complexity of this model,
 
 To install gplibrary and gassolar run the following in the command line in your home directory: 
 
-`pip install git+git://github.com/convexengineering/gplibrary.git`
-`pip install git+git://github.com/convexengineering/gassolar.git`
+```
+pip install git+git://github.com/convexengineering/gplibrary.git
+pip install git+git://github.com/convexengineering/gassolar.git
+```
 
 Finally, to install this repo run: 
 
