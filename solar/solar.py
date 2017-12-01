@@ -19,6 +19,7 @@ from gpkitmodels.GP.aircraft.wing.capspar import CapSpar
 from gpkitmodels.GP.aircraft.wing.wing_skin import WingSkin
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
+from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
@@ -61,6 +62,8 @@ class Aircraft(Model):
         cfrp = CFRPFabric()
         HorizontalTail.sparModel = BoxSpar
         HorizontalTail.fillModel = None
+        VerticalTail.sparModel = BoxSpar
+        VerticalTail.fillModel = None
         WingSkin.material = cfrp
         BoxSpar.shearMaterial = cfrp
         self.emp = Empennage()
@@ -414,8 +417,10 @@ class FlightSegment(Model):
         self.winggust = self.aircraft.wing.spar.gustloading(self.aircraft.wing)
         self.htailg = self.aircraft.emp.htail.spar.loading(
             self.aircraft.emp.htail)
+        self.vtailg = self.aircraft.emp.vtail.spar.loading(
+            self.aircraft.emp.vtail)
 
-        self.loading = [self.wingg, self.winggust, self.htailg]
+        self.loading = [self.wingg, self.winggust, self.htailg, self.vtailg]
 
         self.wingg.substitutions[self.wingg.Nmax] = 5
         self.winggust.substitutions[self.winggust.vgust] = 5
@@ -424,13 +429,16 @@ class FlightSegment(Model):
         rhosl = self.fs.rhosl
         Sh = self.aircraft.emp.htail.planform.S
         CLhmax = self.aircraft.emp.htail.planform.CLmax
+        Sv = self.aircraft.emp.vtail.planform.S
+        CLvmax = self.aircraft.emp.vtail.planform.CLmax
 
         constraints = [self.aircraft.Wcent == self.wingg.W,
                        self.aircraft.Wcent == self.winggust.W,
                        self.aircraft.Wwing == self.winggust.Ww,
                        self.fs.V == self.winggust.v,
                        self.aircraftPerf.wing.CL == self.winggust.cl,
-                       self.htailg.W == 0.5*Vne**2*rhosl*Sh*CLhmax
+                       self.htailg.W == 0.5*Vne**2*rhosl*Sh*CLhmax,
+                       self.vtailg.W == 0.5*Vne**2*rhosl*Sv*CLvmax
                       ]
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
