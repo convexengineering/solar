@@ -23,9 +23,8 @@ from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
-from gpkitmodels.tools.summing_constraintset import summing_vars
+from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
-from gpkitmodels.GP.materials.cfrp import CFRPFabric
 
 path = dirname(gassolar.environment.__file__)
 
@@ -59,13 +58,10 @@ class Aircraft(Model):
 
         self.sp = sp
 
-        cfrp = CFRPFabric()
         HorizontalTail.sparModel = BoxSpar
         HorizontalTail.fillModel = None
         VerticalTail.sparModel = BoxSpar
         VerticalTail.fillModel = None
-        WingSkin.material = cfrp
-        BoxSpar.shearMaterial = cfrp
         self.emp = Empennage()
         self.solarcells = SolarCells()
         if sp:
@@ -122,22 +118,20 @@ class Aircraft(Model):
             self.components.extend([self.fuselage])
             constraints.extend([
                 Volbatt <= self.fuselage["\\mathcal{V}"],
-                Wwing >= self.wing.W + self.solarcells["W"],
-                Wcent >= (Wpay + Wavn + self.emp.W
-                          + self.motor.W + self.fuselage["W"]
-                          + self.battery.W),
+                Wwing >= self.wing.W + self.solarcells.W,
+                Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W
+                          + self.fuselage["W"] + self.battery.W),
                 ])
         else:
             constraints.extend([
-                Wwing >= (sum(summing_vars([self.wing, self.battery,
-                                            self.solarcells], "W"))),
-                Wcent >= (Wpay + Wavn +
-                          sum(summing_vars([self.emp, self.motor], "W"))),
+                Wwing >= sum([c.W for c in [self.wing, self.battery,
+                                            self.solarcells]]),
+                Wcent >= Wpay + Wavn + self.emp.W + self.motor.W,
                 Volbatt <= cmac**2*0.5*tau*b
                 ])
 
         constraints.extend([Wtotal >= (
-            Wpay + Wavn + sum(summing_vars(self.components, "W")))])
+            Wpay + Wavn + sum([c.W for c in self.components]))])
 
         return constraints, self.components, loading
 
@@ -154,7 +148,6 @@ class Motor(Model):
     Pmax                [W]         max power
     Bpm     4140.8      [W/kg]      power mass ratio
     m                   [kg]        motor mass
-    g       9.81        [m/s**2]    gravitational constant
     eta     0.95        [-]         motor efficiency
 
     Upper Unbounded
@@ -185,7 +178,6 @@ class Battery(Model):
     etacharge           0.98        [-]          charging efficiency
     etadischarge        0.98        [-]          discharging efficiency
     E                               [J]          total battery energy
-    g                   9.81        [m/s**2]     gravitational constant
     hbatt               350         [W*hr/kg]    battery specific energy
     vbatt               800         [W*hr/l]     volume battery energy density
     Volbatt                         [m**3]       battery volume
@@ -217,7 +209,6 @@ class SolarCells(Model):
     Variables
     ---------
     rhosolar            0.27    [kg/m^2]        solar cell area density
-    g                   9.81    [m/s**2]        gravitational constant
     S                           [ft**2]         solar cell area
     W                           [lbf]           solar cell weight
     etasolar            0.22    [-]             solar cell efficiency
