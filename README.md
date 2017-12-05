@@ -8,7 +8,7 @@ This repo contains a solar aircraft sizing model that leverages geometric progra
 
 Currently, this model depends on 3 other repos that need to be installed for this repo to run: [gpkit](https://github.com/convexengineering/gpkit), [gplibrary](https://github.com/convexengineering/gplibrary) and [gassolar](https://github.com/convexengineering/gassolar).  All dependent repos are unit tested on continuous intregration testing software.  A summary of all 3 repos is included below. 
 
-To install GPkit follow the instructions here: [gpkit.readthedocs.installation](gpkit.readthedocs.io/en/latest/installation.html)
+To install GPkit follow the instructions here: [gpkit.readthedocs.installation](https://gpkit.readthedocs.io/en/latest/installation.html)
 NOTE: GPkit supports off the shelf solvers.  Given the complexity of this model, it is advisable that the user install [Mosek](https://www.mosek.com/downloads/) as their solver.  Mosek's presolve and solver algorithms are more reliable and faster than the alternatives.  Covergence to a solution is not guaranteed with the open-source solver, cvxopt.
 
 To install gplibrary and gassolar run the following in the command line in your home directory: 
