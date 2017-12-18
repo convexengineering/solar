@@ -62,7 +62,7 @@ class Aircraft(Model):
         HorizontalTail.fillModel = None
         VerticalTail.sparModel = BoxSpar
         VerticalTail.fillModel = None
-        self.emp = Empennage()
+        self.emp = Empennage(N=5, tailboomSpar=BoxSpar)
         self.solarcells = SolarCells()
         if sp:
             WingSP.sparModel = BoxSpar
@@ -80,9 +80,8 @@ class Aircraft(Model):
         loading = []
         if sp:
             tbstate = TailBoomState()
-            loading = TailBoomFlexibility(self.emp.htail,
-                                          self.emp.tailboom,
-                                          self.wing, tbstate)
+            loading = TailBoomFlexibility(self.emp.htail, self.emp.hbend,
+                                          self.wing)
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -488,7 +487,8 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    M = Mission(latitude=[20], sp=False)
+    SP = True
+    M = Mission(latitude=[20], sp=SP)
     del M.substitutions[M.solar.wing.planform.tau]
     M.cost = M[M.solar.Wtotal]
-    sol = M.solve("mosek")
+    sol = M.localsolve("mosek") if SP else M.solve("mosek")
