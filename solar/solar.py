@@ -490,8 +490,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = True
+    SP = False
     M = Mission(latitude=[20], sp=SP)
-    del M.substitutions[M.solar.wing.planform.tau]
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
