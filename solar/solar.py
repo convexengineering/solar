@@ -30,18 +30,6 @@ path = dirname(gassolar.environment.__file__)
 
 class AircraftPerf(Model):
     """ Aircaft Performance
-
-    Variables
-    ---------
-    Pshaft              [hp]    shaft power
-    Pavn        0.0     [W]     accessory power draw
-    Poper               [W]     operating power
-
-    LaTex Strings
-    -------------
-    Pshaft      P_{\\mathrm{shaft}}
-    Pavn        P_{\\mathrm{avn}}
-    Poper       P_{\\mathrm{oper}}
     """
     def setup(self, static, state):
         exec parse_variables(AircraftPerf.__doc__)
@@ -49,13 +37,13 @@ class AircraftPerf(Model):
         drag = AircraftDrag(static, state)
         self.CD = drag.CD
         self.CL = drag.CL
+        self.Pshaft = drag.Pshaft
+        Poper = drag.Poper
         E = self.E = static.battery.E
         etacharge = self.etacharge = static.battery.etacharge
         etadischarge = self.etadischarge = static.battery.etadischarge
         etasolar = self.etasolar = static.solarcells.etasolar
         Ssolar = self.Ssolar = static.Ssolar
-        etamotor = self.etamotor = static.motor.eta
-        Pmax = self.Pmax = static.motor.Pmax
         ESirr = self.ESirr = state.ESirr
         ESday = self.ESday = state.ESday
         EStwi = self.EStwi = state.EStwi
@@ -65,9 +53,7 @@ class AircraftPerf(Model):
         constraints = [
             ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
             E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
-            Poper >= Pavn + Pshaft/etamotor,
             Poper == PSmin*Ssolar*etasolar,
-            Poper <= Pmax
             ]
 
         return drag, constraints
@@ -80,6 +66,9 @@ class AircraftDrag(Model):
     CD                  [-]     aircraft drag coefficient
     cda                 [-]     non-wing drag coefficient
     mfac        1.05    [-]     drag margin factor
+    Pshaft              [hp]    shaft power
+    Pavn        0.0     [W]     accessory power draw
+    Poper               [W]     operating power
 
     LaTex Strings
     -------------
@@ -110,6 +99,8 @@ class AircraftDrag(Model):
         Stb = self.Stb = static.emp.tailboom.S
         cdw = self.cdw = self.wing.Cd
         self.CL = self.wing.CL
+        etamotor = self.etamotor = static.motor.eta
+        Pmax = self.Pmax = static.motor.Pmax
         self.wing.substitutions[e] = 0.95
 
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
@@ -123,7 +114,9 @@ class AircraftDrag(Model):
             dvars.append(cdfuse*Sfuse/Sw)
 
         constraints = [cda >= sum(dvars),
-                       CD/mfac >= cda + cdw]
+                       CD/mfac >= cda + cdw,
+                       Poper >= Pavn + Pshaft/etamotor,
+                       Poper <= Pmax]
 
         return self.flight_models, constraints
 
@@ -461,25 +454,32 @@ class Climb(Model):
 
     Variables
     ---------
-    hdotmin     100         [ft/min]        minimum climb rate
+    hdotmin     120         [ft/min]        minimum climb rate
     hdot                    [ft/min]        climb rate
-    Pshaft                  [W]             power to climb
     T                       [N]             thrust to climb
+    rho         0.003097    [kg/m^3]        air density
+    V                       [m/s]           vehicle speed
+    mu          1.42e-5     [N*s/m^2]       viscosity
+    etaprop     0.8         [-]             propeller efficiency
 
     """
 
-    def setup(self, state, aircraft, perf):
-        exec parse_variables(SteadyLevelFlight.__doc__)
+    def setup(self, aircraft):
+        exec parse_variables(Climb.__doc__)
 
+        self.drag= AircraftDrag(aircraft, self)
         Wtotal = self.Wtotal = aircraft.Wtotal
-        CD = self.CD = perf.CD
+        CD = self.CD = self.drag.CD
+        CL = self.CL = self.drag.CL
         S = self.S = aircraft.wing.planform.S
-        rho = self.rho = state.rho
-        V = self.V = state.V
+        Pshaft = self.drag.Pshaft
 
-        return [T >= 0.5*rhosl*V**2*CD*S + Wtotal*hdot/V,
-                Pclimb >= T*V/etaprop]
+        constraints = [Wtotal*(1.0 + hdot/V) <= 0.5*rho*V**2*CL*S,
+                       T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
+                       hdot >= hdotmin,
+                       Pshaft >= T*V/etaprop]
 
+        return self.drag, constraints
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
@@ -511,6 +511,7 @@ class Mission(Model):
 
         self.solar = Aircraft(sp=sp)
         self.mission = []
+        self.mission.append(Climb(self.solar))
         if day == 355 or day == 172:
             for l in latitude:
                 self.mission.append(FlightSegment(self.solar, l, day))
