@@ -28,6 +28,87 @@ from gpfit.fit_constraintset import FitCS as FCS
 
 path = dirname(gassolar.environment.__file__)
 
+class AircraftPerf(Model):
+    """ Aircaft Performance
+
+    Variables
+    ---------
+    CD                  [-]     aircraft drag coefficient
+    cda                 [-]     non-wing drag coefficient
+    Pshaft              [hp]    shaft power
+    Pavn        0.0     [W]     accessory power draw
+    Poper               [W]     operating power
+    mfac        1.05    [-]     drag margin factor
+
+
+    LaTex Strings
+    -------------
+    CD          C_D
+    cda         CDA
+    Pshaft      P_{\\mathrm{shaft}}
+    Pavn        P_{\\mathrm{avn}}
+    Poper       P_{\\mathrm{oper}}
+    mfac        m_{\\mathrm{fac}}
+    """
+    def setup(self, static, state):
+        exec parse_variables(AircraftPerf.__doc__)
+
+        fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
+
+        self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
+        self.htail = static.emp.htail.flight_model(static.emp.htail, state)
+        self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
+        self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
+                                                         state)
+
+        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom]
+
+        e = self.e = self.wing.e
+        cdht = self.cdht = self.htail.Cd
+        cdvt = self.cdvt = self.vtail.Cd
+        Sh = self.Sh = static.Sh
+        Sv = self.Sv = static.Sv
+        Sw = self.Sw = static.Sw
+        cftb = self.cftb = self.tailboom.Cf
+        Stb = self.Stb = static.emp.tailboom.S
+        E = self.E = static.battery.E
+        etacharge = self.etacharge = static.battery.etacharge
+        etadischarge = self.etadischarge = static.battery.etadischarge
+        etasolar = self.etasolar = static.solarcells.etasolar
+        Ssolar = self.Ssolar = static.Ssolar
+        etamotor = self.etamotor = static.motor.eta
+        Pmax = self.Pmax = static.motor.Pmax
+        cdw = self.cdw = self.wing.Cd
+        ESirr = self.ESirr = state.ESirr
+        ESday = self.ESday = state.ESday
+        EStwi = self.EStwi = state.EStwi
+        tnight = self.tnight = state.tnight
+        PSmin = self.PSmin = state.PSmin
+
+        self.wing.substitutions[e] = 0.95
+
+        dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
+
+        if static.fuseModel:
+            self.fuse = static.fuselage.flight_model(static.fuselage, state)
+            self.flight_models.extend([self.fuse])
+
+            cdfuse = self.fuse.Cd
+            Sfuse = static.fuselage.S
+            dvars.append(cdfuse*Sfuse/Sw)
+
+        constraints = [
+            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
+            E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
+            Poper >= Pavn + Pshaft/etamotor,
+            Poper == PSmin*Ssolar*etasolar,
+            cda >= sum(dvars),
+            CD/mfac >= cda + cdw,
+            Poper <= Pmax
+            ]
+
+        return self.flight_models, constraints
+
 class Aircraft(Model):
     """ Aircraft Model
 
@@ -53,6 +134,8 @@ class Aircraft(Model):
 
     """
     fuseModel = None
+    flight_model = AircraftPerf
+
     def setup(self, sp=False):
         exec parse_variables(Aircraft.__doc__)
 
@@ -133,10 +216,6 @@ class Aircraft(Model):
             Wpay + Wavn + sum([c.W for c in self.components]))])
 
         return constraints, self.components, loading
-
-    def flight_model(self, state):
-        " what happens during flight "
-        return AircraftPerf(self, state)
 
 class Motor(Model):
     """ Motor Model
@@ -232,86 +311,6 @@ class SolarCells(Model):
         exec parse_variables(SolarCells.__doc__)
         return [W >= rhosolar*S*g]
 
-class AircraftPerf(Model):
-    """ Aircaft Performance
-
-    Variables
-    ---------
-    CD                  [-]     aircraft drag coefficient
-    cda                 [-]     non-wing drag coefficient
-    Pshaft              [hp]    shaft power
-    Pavn        0.0     [W]     accessory power draw
-    Poper               [W]     operating power
-    mfac        1.05    [-]     drag margin factor
-
-
-    LaTex Strings
-    -------------
-    CD          C_D
-    cda         CDA
-    Pshaft      P_{\\mathrm{shaft}}
-    Pavn        P_{\\mathrm{avn}}
-    Poper       P_{\\mathrm{oper}}
-    mfac        m_{\\mathrm{fac}}
-    """
-    def setup(self, static, state):
-        exec parse_variables(AircraftPerf.__doc__)
-
-        fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
-
-        self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
-        self.htail = static.emp.htail.flight_model(static.emp.htail, state)
-        self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
-        self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
-                                                         state)
-
-        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom]
-
-        e = self.e = self.wing.e
-        cdht = self.cdht = self.htail.Cd
-        cdvt = self.cdvt = self.vtail.Cd
-        Sh = self.Sh = static.Sh
-        Sv = self.Sv = static.Sv
-        Sw = self.Sw = static.Sw
-        cftb = self.cftb = self.tailboom.Cf
-        Stb = self.Stb = static.emp.tailboom.S
-        E = self.E = static.battery.E
-        etacharge = self.etacharge = static.battery.etacharge
-        etadischarge = self.etadischarge = static.battery.etadischarge
-        etasolar = self.etasolar = static.solarcells.etasolar
-        Ssolar = self.Ssolar = static.Ssolar
-        etamotor = self.etamotor = static.motor.eta
-        Pmax = self.Pmax = static.motor.Pmax
-        cdw = self.cdw = self.wing.Cd
-        ESirr = self.ESirr = state.ESirr
-        ESday = self.ESday = state.ESday
-        EStwi = self.EStwi = state.EStwi
-        tnight = self.tnight = state.tnight
-        PSmin = self.PSmin = state.PSmin
-
-        self.wing.substitutions[e] = 0.95
-
-        dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
-
-        if static.fuseModel:
-            self.fuse = static.fuselage.flight_model(static.fuselage, state)
-            self.flight_models.extend([self.fuse])
-
-            cdfuse = self.fuse.Cd
-            Sfuse = static.fuselage.S
-            dvars.append(cdfuse*Sfuse/Sw)
-
-        constraints = [
-            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
-            E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
-            Poper >= Pavn + Pshaft/etamotor,
-            Poper == PSmin*Ssolar*etasolar,
-            cda >= sum(dvars),
-            CD/mfac >= cda + cdw,
-            Poper <= Pmax
-            ]
-
-        return self.flight_models, constraints
 
 class FlightState(Model):
     """Flight State (wind speed, solar irradiance, atmosphere)
@@ -402,7 +401,7 @@ class FlightSegment(Model):
 
         self.aircraft = aircraft
         self.fs = FlightState(latitude=latitude, day=day)
-        self.aircraftPerf = self.aircraft.flight_model(self.fs)
+        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
