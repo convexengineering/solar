@@ -33,25 +33,62 @@ class AircraftPerf(Model):
 
     Variables
     ---------
-    CD                  [-]     aircraft drag coefficient
-    cda                 [-]     non-wing drag coefficient
     Pshaft              [hp]    shaft power
     Pavn        0.0     [W]     accessory power draw
     Poper               [W]     operating power
-    mfac        1.05    [-]     drag margin factor
 
+    LaTex Strings
+    -------------
+    Pshaft      P_{\\mathrm{shaft}}
+    Pavn        P_{\\mathrm{avn}}
+    Poper       P_{\\mathrm{oper}}
+    """
+    def setup(self, static, state):
+        exec parse_variables(AircraftPerf.__doc__)
+
+        drag = AircraftDrag(static, state)
+        self.CD = drag.CD
+        self.CL = drag.CL
+        E = self.E = static.battery.E
+        etacharge = self.etacharge = static.battery.etacharge
+        etadischarge = self.etadischarge = static.battery.etadischarge
+        etasolar = self.etasolar = static.solarcells.etasolar
+        Ssolar = self.Ssolar = static.Ssolar
+        etamotor = self.etamotor = static.motor.eta
+        Pmax = self.Pmax = static.motor.Pmax
+        ESirr = self.ESirr = state.ESirr
+        ESday = self.ESday = state.ESday
+        EStwi = self.EStwi = state.EStwi
+        tnight = self.tnight = state.tnight
+        PSmin = self.PSmin = state.PSmin
+
+        constraints = [
+            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
+            E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
+            Poper >= Pavn + Pshaft/etamotor,
+            Poper == PSmin*Ssolar*etasolar,
+            Poper <= Pmax
+            ]
+
+        return drag, constraints
+
+class AircraftDrag(Model):
+    """ Aircaft Performance
+
+    Variables
+    ---------
+    CD                  [-]     aircraft drag coefficient
+    cda                 [-]     non-wing drag coefficient
+    mfac        1.05    [-]     drag margin factor
 
     LaTex Strings
     -------------
     CD          C_D
     cda         CDA
-    Pshaft      P_{\\mathrm{shaft}}
-    Pavn        P_{\\mathrm{avn}}
-    Poper       P_{\\mathrm{oper}}
     mfac        m_{\\mathrm{fac}}
     """
     def setup(self, static, state):
-        exec parse_variables(AircraftPerf.__doc__)
+        exec parse_variables(AircraftDrag.__doc__)
 
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
 
@@ -71,20 +108,8 @@ class AircraftPerf(Model):
         Sw = self.Sw = static.Sw
         cftb = self.cftb = self.tailboom.Cf
         Stb = self.Stb = static.emp.tailboom.S
-        E = self.E = static.battery.E
-        etacharge = self.etacharge = static.battery.etacharge
-        etadischarge = self.etadischarge = static.battery.etadischarge
-        etasolar = self.etasolar = static.solarcells.etasolar
-        Ssolar = self.Ssolar = static.Ssolar
-        etamotor = self.etamotor = static.motor.eta
-        Pmax = self.Pmax = static.motor.Pmax
         cdw = self.cdw = self.wing.Cd
-        ESirr = self.ESirr = state.ESirr
-        ESday = self.ESday = state.ESday
-        EStwi = self.EStwi = state.EStwi
-        tnight = self.tnight = state.tnight
-        PSmin = self.PSmin = state.PSmin
-
+        self.CL = self.wing.CL
         self.wing.substitutions[e] = 0.95
 
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
@@ -97,15 +122,8 @@ class AircraftPerf(Model):
             Sfuse = static.fuselage.S
             dvars.append(cdfuse*Sfuse/Sw)
 
-        constraints = [
-            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
-            E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
-            Poper >= Pavn + Pshaft/etamotor,
-            Poper == PSmin*Ssolar*etasolar,
-            cda >= sum(dvars),
-            CD/mfac >= cda + cdw,
-            Poper <= Pmax
-            ]
+        constraints = [cda >= sum(dvars),
+                       CD/mfac >= cda + cdw]
 
         return self.flight_models, constraints
 
@@ -119,6 +137,7 @@ class Aircraft(Model):
     Wtotal              [lbf]   aircraft weight
     Wwing               [lbf]   wing weight
     Wcent               [lbf]   center weight
+    mfac        1.05    [-]     total weight margin
 
     Upper Unbounded
     ---------------
@@ -212,7 +231,7 @@ class Aircraft(Model):
                 Volbatt <= cmac**2*0.5*tau*b
                 ])
 
-        constraints.extend([Wtotal >= (
+        constraints.extend([Wtotal/mfac >= (
             Wpay + Wavn + sum([c.W for c in self.components]))])
 
         return constraints, self.components, loading
@@ -428,7 +447,7 @@ class FlightSegment(Model):
                        self.aircraft.Wcent == self.winggust.W,
                        self.aircraft.Wwing == self.winggust.Ww,
                        self.fs.V == self.winggust.v,
-                       self.aircraftPerf.wing.CL == self.winggust.cl,
+                       self.aircraftPerf.CL == self.winggust.cl,
                        self.htailg.W == 0.5*Vne**2*rhosl*Sh*CLhmax,
                        self.vtailg.W == 0.5*Vne**2*rhosl*Sv*CLvmax
                       ]
@@ -436,6 +455,31 @@ class FlightSegment(Model):
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
         return constraints, self.submodels
+
+class Climb(Model):
+    """ Climb model
+
+    Variables
+    ---------
+    hdotmin     100         [ft/min]        minimum climb rate
+    hdot                    [ft/min]        climb rate
+    Pshaft                  [W]             power to climb
+    T                       [N]             thrust to climb
+
+    """
+
+    def setup(self, state, aircraft, perf):
+        exec parse_variables(SteadyLevelFlight.__doc__)
+
+        Wtotal = self.Wtotal = aircraft.Wtotal
+        CD = self.CD = perf.CD
+        S = self.S = aircraft.wing.planform.S
+        rho = self.rho = state.rho
+        V = self.V = state.V
+
+        return [T >= 0.5*rhosl*V**2*CD*S + Wtotal*hdot/V,
+                Pclimb >= T*V/etaprop]
+
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
@@ -450,7 +494,7 @@ class SteadyLevelFlight(Model):
         exec parse_variables(SteadyLevelFlight.__doc__)
 
         Wtotal = self.Wtotal = aircraft.Wtotal
-        CL = self.CL = perf.wing.CL
+        CL = self.CL = perf.CL
         CD = self.CD = perf.CD
         Pshaft = self.Pshaft = perf.Pshaft
         S = self.S = aircraft.wing.planform.S
