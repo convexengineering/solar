@@ -116,10 +116,10 @@ class Aircraft(Model):
             self.fuselage = self.fuseModel()
             self.components.extend([self.fuselage])
             constraints.extend([
-                Volbatt <= self.fuselage["\\mathcal{V}"],
+                Volbatt <= self.fuselage.Vol,
                 Wwing >= self.wing.W + self.solarcells.W,
                 Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W
-                          + self.fuselage["W"] + self.battery.W),
+                          + self.fuselage.W + self.battery.W),
                 ])
         else:
             constraints.extend([
@@ -294,16 +294,19 @@ class AircraftPerf(Model):
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
 
         if static.fuseModel:
-            self.fuse = static.fuselage.flight_model(state)
+            self.fuse = static.fuselage.flight_model(static.fuselage, state)
             self.flight_models.extend([self.fuse])
-            dvars.append(self.fuse["C_d"])
+
+            cdfuse = self.fuse.Cd
+            Sfuse = static.fuselage.S
+            dvars.append(cdfuse*Sfuse/Sw)
 
         constraints = [
             ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
             E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
             Poper >= Pavn + Pshaft/etamotor,
             Poper == PSmin*Ssolar*etasolar,
-            cda >= cdht*Sh/Sw + cdvt*Sv/Sw + cftb*Stb/Sw,
+            cda >= sum(dvars),
             CD/mfac >= cda + cdw,
             Poper <= Pmax
             ]
