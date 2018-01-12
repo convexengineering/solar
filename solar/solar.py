@@ -1,28 +1,22 @@
 " Simple Solar-Electric Powered Aircraft Model "
-#pylint: disable=attribute-defined-outside-init, invalid-name, unused-variable
-#pylint: disable=too-many-locals, redefined-variable-type
-#pylint: disable=too-many-instance-attributes
+#pylint: disable=invalid-name, too-many-instance-attributes, too-many-locals
+#pylint: disable=redefined-variable-type, too-many-statements, not-callable
 from os.path import abspath, dirname
 from os import sep
-import os
 import pandas as pd
 import numpy as np
 import gassolar.environment
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, Variable, parse_variables
+from gpkit import Model, parse_variables
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
-from gpkitmodels.GP.aircraft.wing.capspar import CapSpar
-from gpkitmodels.GP.aircraft.wing.wing_skin import WingSkin
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
 from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
-from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoomState
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
-from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 
@@ -69,6 +63,7 @@ class AircraftDrag(Model):
     Pshaft              [hp]    shaft power
     Pavn        0.0     [W]     accessory power draw
     Poper               [W]     operating power
+    mpower      1.05    [-]     power margin
 
     LaTex Strings
     -------------
@@ -115,7 +110,7 @@ class AircraftDrag(Model):
 
         constraints = [cda >= sum(dvars),
                        CD/mfac >= cda + cdw,
-                       Poper >= Pavn + Pshaft/etamotor,
+                       Poper/mpower >= Pavn + Pshaft/etamotor,
                        Poper <= Pmax]
 
         return self.flight_models, constraints
@@ -174,7 +169,6 @@ class Aircraft(Model):
                            self.emp, self.motor]
         loading = []
         if sp:
-            tbstate = TailBoomState()
             loading = TailBoomFlexibility(self.emp.htail, self.emp.hbend,
                                           self.wing)
 
@@ -389,12 +383,12 @@ class FlightState(Model):
 
 def altitude(density):
     " find air density "
-    g = 9.80665 # m/s^2
+    g1 = 9.80665 # m/s^2
     R = 287.04 # m^2/K/s^2
     T11 = 216.65 # K
     p11 = 22532 # Pa
     p = density*R*T11
-    h = (11000 - R*T11/g*np.log(p/p11))/0.3048
+    h = (11000 - R*T11/g1*np.log(p/p11))/0.3048
     return h
 
 class FlightSegment(Model):
@@ -426,9 +420,11 @@ class FlightSegment(Model):
 
         self.loading = [self.wingg, self.winggust, self.htailg, self.vtailg]
 
-        self.wingg.substitutions[self.wingg.Nmax] = 5
+        self.wingg.substitutions[self.wingg.Nmax] = 2
+        self.wingg.substitutions[self.wingg.Nsafety] = 1.5
         self.winggust.substitutions[self.winggust.vgust] = 5
         self.winggust.substitutions[self.winggust.Nmax] = 2
+        self.winggust.substitutions[self.winggust.Nsafety] = 1.5
 
         rhosl = self.fs.rhosl
         Sh = self.aircraft.emp.htail.planform.S
@@ -467,7 +463,7 @@ class Climb(Model):
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
 
-        self.drag= AircraftDrag(aircraft, self)
+        self.drag = AircraftDrag(aircraft, self)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
         CL = self.CL = self.drag.CL
