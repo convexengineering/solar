@@ -13,6 +13,7 @@ from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
 from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
+from gpkitmodels.GP.aircraft.wing.wing_skin import WingSecondStruct
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
 from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
@@ -150,17 +151,21 @@ class Aircraft(Model):
 
         HorizontalTail.sparModel = BoxSpar
         HorizontalTail.fillModel = None
+        HorizontalTail.skinModel = WingSecondStruct
         VerticalTail.sparModel = BoxSpar
         VerticalTail.fillModel = None
+        VerticalTail.skinModel = WingSecondStruct
         self.emp = Empennage(N=5, tailboomSpar=BoxSpar)
         self.solarcells = SolarCells()
         if sp:
             WingSP.sparModel = BoxSpar
             WingSP.fillModel = None
+            WingSP.skinModel = WingSecondStruct
             self.wing = WingSP()
         else:
             WingGP.sparModel = BoxSpar
             WingGP.fillModel = None
+            WingGP.skinModel = WingSecondStruct
             self.wing = WingGP()
         self.battery = Battery()
         self.motor = Motor()
@@ -189,6 +194,8 @@ class Aircraft(Model):
         mfsolar = self.mfsolar = self.solarcells.mfac
 
         self.emp.substitutions[Vv] = 0.04
+        self.emp.substitutions[self.emp.htail.skin.rhoA] = 0.4
+        self.emp.substitutions[self.emp.vtail.skin.rhoA] = 0.4
         self.wing.substitutions[self.wing.mfac] = 1.1
         if not sp:
             self.emp.substitutions[Vh] = 0.45
