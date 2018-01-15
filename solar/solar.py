@@ -255,7 +255,7 @@ class Motor(Model):
     ---------
     W                   [lbf]       motor weight
     Pmax                [W]         max power
-    Bpm     4140.8      [W/kg]      power mass ratio
+    Bpm     1/0.0003    [W/kg]      power mass ratio
     m                   [kg]        motor mass
     eta                 [-]         motor system efficiency
     etam    0.95        [-]         motor efficiency
