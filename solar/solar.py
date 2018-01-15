@@ -65,7 +65,8 @@ class AircraftDrag(Model):
     cda                 [-]     non-wing drag coefficient
     mfac        1.05    [-]     drag margin factor
     Pshaft              [hp]    shaft power
-    Pavn        0.0     [W]     accessory power draw
+    Pavn        200     [W]     avionics power draw
+    Ppay        100     [W]     payload power draw
     Poper               [W]     operating power
     mpower      1.05    [-]     power margin
 
@@ -114,7 +115,7 @@ class AircraftDrag(Model):
 
         constraints = [cda >= sum(dvars),
                        CD/mfac >= cda + cdw,
-                       Poper/mpower >= Pavn + Pshaft/etamotor,
+                       Poper/mpower >= Pavn + Ppay + Pshaft/etamotor,
                        Poper <= Pmax]
 
         return self.flight_models, constraints
@@ -124,12 +125,14 @@ class Aircraft(Model):
 
     Variables
     ---------
-    Wpay        10      [lbf]   payload weight
-    Wavn        8       [lbf]   avionics weight
+    Wpay        11      [lbf]   payload weight
+    Wavn        22      [lbf]   avionics weight
     Wtotal              [lbf]   aircraft weight
     Wwing               [lbf]   wing weight
     Wcent               [lbf]   center weight
     mfac        1.05    [-]     total weight margin
+    fland       0.02    [-]     fractional landing gear weight
+    Wland               [lbf]   landing gear weight
 
     Upper Unbounded
     ---------------
@@ -224,6 +227,7 @@ class Aircraft(Model):
                        Vh <= Sh*lh/Sw/cmac,
                        Vv <= Sv*lv/Sw/b,
                        d0 <= tau*croot,
+                       Wland >= fland*Wtotal,
                       ]
 
         if self.fuseModel:
@@ -244,7 +248,7 @@ class Aircraft(Model):
                 ])
 
         constraints.extend([Wtotal/mfac >= (
-            Wpay + Wavn + sum([c.W for c in self.components]))])
+            Wpay + Wavn + Wland + sum([c.W for c in self.components]))])
 
         return constraints, self.components, loading, materials
 
@@ -290,8 +294,13 @@ class Battery(Model):
     etadischarge        0.98        [-]          discharging efficiency
     E                               [J]          total battery energy
     hbatt               350         [W*hr/kg]    battery specific energy
-    vbatt               800         [W*hr/l]     volume battery energy density
+    vbatt               800         [W*hr/l]     battery energy density
     Volbatt                         [m**3]       battery volume
+    etapack             0.85        [-]          packing efficiency
+    etaRTE              0.95        [-]          battery RTE
+    minSOC              1.03        [-]          minimum state of charge
+    rhomppt             0.4223      [kg/kW]      power system mass density
+    etamppt             0.975       [-]          power system efficiency
 
     Upper Unbounded
     ---------------
@@ -312,17 +321,18 @@ class Battery(Model):
     """
     def setup(self):
         exec parse_variables(Battery.__doc__)
-        return [W >= E/hbatt*g, Volbatt >= E/vbatt]
+        return [W >= E*minSOC/hbatt/etaRTE/etapack*g,
+                Volbatt >= E/vbatt]
 
 class SolarCells(Model):
     """solar cell model
 
     Variables
     ---------
-    rhosolar            0.27    [kg/m^2]        solar cell area density
+    rhosolar            0.3     [kg/m^2]        solar cell area density
     S                           [ft**2]         solar cell area
     W                           [lbf]           solar cell weight
-    etasolar            0.22    [-]             solar cell efficiency
+    etasolar            0.2     [-]             solar cell efficiency
     mfac                1.0     [-]             solar cell area margin
 
     Upper Unbounded
@@ -497,7 +507,7 @@ class Climb(Model):
         S = self.S = aircraft.wing.planform.S
         Pshaft = self.drag.Pshaft
 
-        constraints = [Wtotal*(1.0 + hdot/V) <= 0.5*rho*V**2*CL*S,
+        constraints = [Wtotal <= 0.5*rho*V**2*CL*S,
                        T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
                        hdot >= hdotmin,
                        Pshaft >= T*V/etaprop]
