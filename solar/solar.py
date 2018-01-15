@@ -21,6 +21,8 @@ from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoom
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
+from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
+
 
 path = dirname(gassolar.environment.__file__)
 
@@ -150,6 +152,18 @@ class Aircraft(Model):
 
         self.sp = sp
 
+        cfrpud.substitutions.update({cfrpud.rho: 1.5,
+                                     cfrpud.E: 200,
+                                     cfrpud.tmin: 0.1,
+                                     cfrpud.sigma: 1500})
+        cfrpfabric.substitutions.update({cfrpfabric.rho: 1.3,
+                                         cfrpfabric.E: 40,
+                                         cfrpfabric.tmin: 0.1,
+                                         cfrpfabric.sigma: 300,
+                                         cfrpfabric.tau: 80})
+        foamhd.substitutions.update({foamhd.rho: 0.03})
+        materials = [cfrpud, cfrpfabric, foamhd]
+
         HorizontalTail.sparModel = BoxSpar
         HorizontalTail.fillModel = None
         HorizontalTail.skinModel = WingSecondStruct
@@ -232,7 +246,7 @@ class Aircraft(Model):
         constraints.extend([Wtotal/mfac >= (
             Wpay + Wavn + sum([c.W for c in self.components]))])
 
-        return constraints, self.components, loading
+        return constraints, self.components, loading, materials
 
 class Motor(Model):
     """ Motor Model
@@ -243,7 +257,9 @@ class Motor(Model):
     Pmax                [W]         max power
     Bpm     4140.8      [W/kg]      power mass ratio
     m                   [kg]        motor mass
-    eta     0.95        [-]         motor efficiency
+    eta                 [-]         motor system efficiency
+    etam    0.95        [-]         motor efficiency
+    etac    0.97        [-]         controller efficiency
 
     Upper Unbounded
     ---------------
@@ -262,7 +278,7 @@ class Motor(Model):
     """
     def setup(self):
         exec parse_variables(Motor.__doc__)
-        return [Pmax <= Bpm*m, W >= m*g]
+        return [Pmax <= Bpm*m, W >= m*g, eta <= etam*etac]
 
 class Battery(Model):
     """ Battery Model
@@ -467,7 +483,7 @@ class Climb(Model):
     rho         0.003097    [kg/m^3]        air density
     V                       [m/s]           vehicle speed
     mu          1.42e-5     [N*s/m^2]       viscosity
-    etaprop     0.8         [-]             propeller efficiency
+    etaprop     0.85        [-]             propeller efficiency
 
     """
 
@@ -494,7 +510,7 @@ class SteadyLevelFlight(Model):
     Variables
     ---------
     T                       [N]     thrust
-    etaprop         0.8     [-]     propeller efficiency
+    etaprop         0.85    [-]     propeller efficiency
 
     """
     def setup(self, state, aircraft, perf):
