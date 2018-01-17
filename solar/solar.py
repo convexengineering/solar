@@ -196,6 +196,7 @@ class Aircraft(Model):
         if sp:
             loading = TailBoomFlexibility(self.emp.htail, self.emp.hbend,
                                           self.wing)
+            loading.substitutions[loading.SMcorr] = 0.05
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -567,7 +568,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = False
+    SP = True
     M = Mission(latitude=[20], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
