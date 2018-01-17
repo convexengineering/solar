@@ -7,7 +7,7 @@ from solar import Mission
 
 #pylint: disable=invalid-name, anomalous-backslash-in-string
 
-def get_highestsens(model, res, varnames=None):
+def get_highestsens(model, res, varnames=None, N=10):
     " plot bar chart of sensitivities "
     pss = []
     ngs = []
@@ -33,7 +33,7 @@ def get_highestsens(model, res, varnames=None):
                          reverse=True)
 
     for s in sorted_sens:
-        if i > 10:
+        if i > N:
             break
         i += 1
         vk = s[0]
@@ -101,6 +101,6 @@ if __name__ == "__main__":
            "Nmax": "$N_{\\mathrm{max}}$",
            "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
 
-    sd = get_highestsens(M, sol, vns)
+    sd = get_highestsens(M, sol, N=15)
     f, a = plot_chart(sd)
     f.savefig(path + "sensbar.pdf", bbox_inches="tight")

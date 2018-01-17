@@ -32,11 +32,11 @@ class AircraftPerf(Model):
     def setup(self, static, state):
         exec parse_variables(AircraftPerf.__doc__)
 
-        drag = AircraftDrag(static, state)
-        self.CD = drag.CD
-        self.CL = drag.CL
-        self.Pshaft = drag.Pshaft
-        Poper = drag.Poper
+        self.drag = AircraftDrag(static, state)
+        self.CD = self.drag.CD
+        self.CL = self.drag.CL
+        self.Pshaft = self.drag.Pshaft
+        Poper = self.drag.Poper
         E = self.E = static.battery.E
         etacharge = self.etacharge = static.battery.etacharge
         etadischarge = self.etadischarge = static.battery.etadischarge
@@ -54,7 +54,7 @@ class AircraftPerf(Model):
             Poper == PSmin*Ssolar*etasolar,
             ]
 
-        return drag, constraints
+        return self.drag, constraints
 
 class AircraftDrag(Model):
     """ Aircaft Performance
@@ -414,7 +414,7 @@ class FlightState(Model):
             dft, dfd = twi_fits(latitude, day, gen=True)
 
         return [V/mfac >= Vwind,
-                FCS(df, Vwind/Vwindref, [rho/rhoref, pct]),
+                FCS(df, Vwind/Vwindref, [rho/rhoref, pct], name="wind"),
                 FCS(dfd, ESday/ESvar, [PSmin/PSvar]),
                 FCS(dft, EStwi/ESvar, [PSmin/PSvar]),
                ]
