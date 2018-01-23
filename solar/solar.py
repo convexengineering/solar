@@ -192,11 +192,6 @@ class Aircraft(Model):
 
         self.components = [self.solarcells, self.wing, self.battery,
                            self.emp, self.motor]
-        loading = []
-        if sp:
-            loading = TailBoomFlexibility(self.emp.htail, self.emp.hbend,
-                                          self.wing)
-            loading.substitutions[loading.SMcorr] = 0.05
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -251,7 +246,7 @@ class Aircraft(Model):
         constraints.extend([Wtotal/mfac >= (
             Wpay + Wavn + Wland + sum([c.W for c in self.components]))])
 
-        return constraints, self.components, loading, materials
+        return constraints, self.components, materials
 
 class Motor(Model):
     """ Motor Model
@@ -382,6 +377,9 @@ class FlightState(Model):
     rhoref      1.0         [kg/m^3]    reference air density
     mfac        1.0         [-]         wind speed margin factor
     rhosl       1.225       [kg/m^3]    sea level air density
+    Vne                     [m/s]       never exceed speed at altitude
+    qne                     [kg/s^2/m]  never exceed dynamic pressure
+    N           1.4         [-]         factor on Vne
 
     LaTex Strings
     -------------
@@ -417,6 +415,8 @@ class FlightState(Model):
                 FCS(df, Vwind/Vwindref, [rho/rhoref, pct], name="wind"),
                 FCS(dfd, ESday/ESvar, [PSmin/PSvar]),
                 FCS(dft, EStwi/ESvar, [PSmin/PSvar]),
+                Vne == N*V,
+                qne == 0.5*rho*Vne**2
                ]
 
 def altitude(density):
@@ -431,11 +431,6 @@ def altitude(density):
 
 class FlightSegment(Model):
     """ Flight Segment
-
-    Variables
-    ---------
-    Vne         30      [m/s]       never exceed velocity
-
     """
     def setup(self, aircraft, latitude=35, day=355):
         exec parse_variables(FlightSegment.__doc__)
@@ -449,34 +444,51 @@ class FlightSegment(Model):
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
-        self.wingg = self.aircraft.wing.spar.loading(self.aircraft.wing)
-        self.winggust = self.aircraft.wing.spar.gustloading(self.aircraft.wing)
+        self.wingg = self.aircraft.wing.spar.loading(
+            self.aircraft.wing, self.fs)
+        self.winggust = self.aircraft.wing.spar.gustloading(
+            self.aircraft.wing, self.fs)
         self.htailg = self.aircraft.emp.htail.spar.loading(
-            self.aircraft.emp.htail)
+            self.aircraft.emp.htail, self.fs)
         self.vtailg = self.aircraft.emp.vtail.spar.loading(
-            self.aircraft.emp.vtail)
+            self.aircraft.emp.vtail, self.fs)
 
-        self.loading = [self.wingg, self.winggust, self.htailg, self.vtailg]
+        self.tbhbend = self.aircraft.emp.tailboom.tailLoad(
+            self.aircraft.emp.tailboom, self.aircraft.emp.htail,
+            self.fs)
+        self.tbvbend = self.aircraft.emp.tailboom.tailLoad(
+            self.aircraft.emp.tailboom, self.aircraft.emp.vtail,
+            self.fs)
+
+        if self.aircraft.sp:
+            self.tbflex = TailBoomFlexibility(self.aircraft.emp.htail,
+                                              self.tbhbend, self.aircraft.wing)
+            self.tbflex.substitutions[self.tbflex.SMcorr] = 0.05
+
+        self.loading = [self.wingg, self.winggust, self.htailg, self.vtailg,
+                        self.tbhbend, self.tbvbend, self.tbflex]
 
         self.wingg.substitutions[self.wingg.Nmax] = 2
         self.wingg.substitutions[self.wingg.Nsafety] = 1.5
         self.winggust.substitutions[self.winggust.vgust] = 5
         self.winggust.substitutions[self.winggust.Nmax] = 2
         self.winggust.substitutions[self.winggust.Nsafety] = 1.5
+        self.tbhbend.substitutions[self.tbhbend.Nsafety] = 1.5
+        self.tbvbend.substitutions[self.tbvbend.Nsafety] = 1.5
 
-        rhosl = self.fs.rhosl
         Sh = self.aircraft.emp.htail.planform.S
         CLhmax = self.aircraft.emp.htail.planform.CLmax
         Sv = self.aircraft.emp.vtail.planform.S
         CLvmax = self.aircraft.emp.vtail.planform.CLmax
+        qne = self.fs.qne
 
         constraints = [self.aircraft.Wcent == self.wingg.W,
                        self.aircraft.Wcent == self.winggust.W,
                        self.aircraft.Wwing == self.winggust.Ww,
                        self.fs.V == self.winggust.v,
                        self.aircraftPerf.CL == self.winggust.cl,
-                       self.htailg.W == 0.5*Vne**2*rhosl*Sh*CLhmax,
-                       self.vtailg.W == 0.5*Vne**2*rhosl*Sv*CLvmax
+                       self.htailg.W == qne*Sh*CLhmax,
+                       self.vtailg.W == qne*Sv*CLvmax
                       ]
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
