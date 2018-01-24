@@ -67,6 +67,7 @@ def dict_sort(vdict):
                 slist.insert(i, (v, vdict[v]))
                 break
 
+    del slist[-1]
     return slist
 
 def plot_chart(sensdict):
@@ -85,7 +86,7 @@ def plot_chart(sensdict):
 
 def test():
     " test for integrated testing "
-    model = Mission(latitude=[10])
+    model = Mission(latitude=[20])
     model.cost = model[model.solar.Wtotal]
     result = model.solve("mosek")
     _ = get_highestsens(model, result)
