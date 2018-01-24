@@ -467,7 +467,7 @@ class FlightSegment(Model):
             self.tbflex = TailBoomFlexibility(self.aircraft.emp.htail,
                                               self.tbhbend, self.aircraft.wing)
             self.tbflex.substitutions[self.tbflex.SMcorr] = 0.05
-            self.loading.append(tbflex)
+            self.loading.append(self.tbflex)
 
         self.wingg.substitutions[self.wingg.Nmax] = 2
         self.wingg.substitutions[self.wingg.Nsafety] = 1.5
@@ -585,7 +585,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = False
+    SP = True
     M = Mission(latitude=[20], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
