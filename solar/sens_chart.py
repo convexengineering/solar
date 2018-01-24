@@ -2,6 +2,7 @@
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import random
 from gpkit.repr_conventions import unitstr
 from solar import Mission
 
@@ -29,8 +30,7 @@ def get_highestsens(model, res, varnames=None, N=10):
 
     labels = []
     i = 0
-    sorted_sens = sorted(sens.items(), key=lambda x: np.absolute(x[1]),
-                         reverse=True)
+    sorted_sens = dict_sort(sens)
 
     for s in sorted_sens:
         if i > N:
@@ -56,6 +56,18 @@ def get_highestsens(model, res, varnames=None, N=10):
     sensdict = {"positives": pss, "negatives": ngs, "indicies": ind,
                 "labels": labels}
     return sensdict
+
+def dict_sort(vdict):
+    " sort variable sensitivity dict"
+
+    slist = [(0, 0.0)]
+    for v in vdict:
+        for i, sv in enumerate(slist):
+            if abs(vdict[v]) > abs(sv[1]):
+                slist.insert(i, (v, vdict[v]))
+                break
+
+    return slist
 
 def plot_chart(sensdict):
     "plot sensitivities on bar chart"
@@ -89,7 +101,7 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    M = Mission(latitude=[25])
+    M = Mission(latitude=[20])
     M.cost = M[M.solar.Wtotal]
     sol = M.solve("mosek")
 

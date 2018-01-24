@@ -213,7 +213,7 @@ class Aircraft(Model):
         self.emp.substitutions[self.emp.htail.skin.rhoA] = 0.4
         self.emp.substitutions[self.emp.vtail.skin.rhoA] = 0.4
         self.emp.substitutions[self.emp.tailboom.wlim] = 1.0
-        self.wing.substitutions[self.wing.mfac] = 1.1
+        self.wing.substitutions[self.wing.mfac] = 1.0
         if not sp:
             self.emp.substitutions[Vh] = 0.45
             self.emp.substitutions[self.emp.htail.mh] = 0.1
@@ -460,13 +460,14 @@ class FlightSegment(Model):
             self.aircraft.emp.tailboom, self.aircraft.emp.vtail,
             self.fs)
 
+        self.loading = [self.wingg, self.winggust, self.htailg, self.vtailg,
+                        self.tbhbend, self.tbvbend]
+
         if self.aircraft.sp:
             self.tbflex = TailBoomFlexibility(self.aircraft.emp.htail,
                                               self.tbhbend, self.aircraft.wing)
             self.tbflex.substitutions[self.tbflex.SMcorr] = 0.05
-
-        self.loading = [self.wingg, self.winggust, self.htailg, self.vtailg,
-                        self.tbhbend, self.tbvbend, self.tbflex]
+            self.loading.append(tbflex)
 
         self.wingg.substitutions[self.wingg.Nmax] = 2
         self.wingg.substitutions[self.wingg.Nsafety] = 1.5
@@ -500,7 +501,9 @@ class Climb(Model):
 
     Variables
     ---------
-    hdotmin     120         [ft/min]        minimum climb rate
+    h           60000       [ft]            climb altitude
+    t           500         [min]           time to climb
+    hdotmin                 [ft/min]        minimum climb rate
     hdot                    [ft/min]        climb rate
     T                       [N]             thrust to climb
     rho         0.003097    [kg/m^3]        air density
@@ -520,10 +523,12 @@ class Climb(Model):
         S = self.S = aircraft.wing.planform.S
         Pshaft = self.drag.Pshaft
 
-        constraints = [Wtotal <= 0.5*rho*V**2*CL*S,
-                       T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
-                       hdot >= hdotmin,
-                       Pshaft >= T*V/etaprop]
+        constraints = [
+            Wtotal <= 0.5*rho*V**2*CL*S,
+            T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
+            hdot >= hdotmin,
+            hdotmin == h/t,
+            Pshaft >= T*V/etaprop]
 
         return self.drag, constraints
 
@@ -580,7 +585,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = True
+    SP = False
     M = Mission(latitude=[20], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
