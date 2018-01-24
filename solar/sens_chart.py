@@ -2,12 +2,13 @@
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import random
 from gpkit.repr_conventions import unitstr
 from solar import Mission
 
 #pylint: disable=invalid-name, anomalous-backslash-in-string
 
-def get_highestsens(model, res, varnames=None):
+def get_highestsens(model, res, varnames=None, N=10):
     " plot bar chart of sensitivities "
     pss = []
     ngs = []
@@ -29,11 +30,10 @@ def get_highestsens(model, res, varnames=None):
 
     labels = []
     i = 0
-    sorted_sens = sorted(sens.items(), key=lambda x: np.absolute(x[1]),
-                         reverse=True)
+    sorted_sens = dict_sort(sens)
 
     for s in sorted_sens:
-        if i > 10:
+        if i > N:
             break
         i += 1
         vk = s[0]
@@ -57,6 +57,19 @@ def get_highestsens(model, res, varnames=None):
                 "labels": labels}
     return sensdict
 
+def dict_sort(vdict):
+    " sort variable sensitivity dict"
+
+    slist = [(0, 0.0)]
+    for v in vdict:
+        for i, sv in enumerate(slist):
+            if abs(vdict[v]) > abs(sv[1]):
+                slist.insert(i, (v, vdict[v]))
+                break
+
+    del slist[-1]
+    return slist
+
 def plot_chart(sensdict):
     "plot sensitivities on bar chart"
     fig, ax = plt.subplots()
@@ -73,7 +86,7 @@ def plot_chart(sensdict):
 
 def test():
     " test for integrated testing "
-    model = Mission(latitude=[10])
+    model = Mission(latitude=[20])
     model.cost = model[model.solar.Wtotal]
     result = model.solve("mosek")
     _ = get_highestsens(model, result)
@@ -89,7 +102,7 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    M = Mission(latitude=[25])
+    M = Mission(latitude=[20])
     M.cost = M[M.solar.Wtotal]
     sol = M.solve("mosek")
 
@@ -101,6 +114,6 @@ if __name__ == "__main__":
            "Nmax": "$N_{\\mathrm{max}}$",
            "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
 
-    sd = get_highestsens(M, sol, vns)
+    sd = get_highestsens(M, sol, N=15)
     f, a = plot_chart(sd)
     f.savefig(path + "sensbar.pdf", bbox_inches="tight")
