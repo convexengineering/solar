@@ -8,7 +8,7 @@ import numpy as np
 import gassolar.environment
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, parse_variables, Variable
+from gpkit import Model, parse_variables, Vectorize
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
@@ -22,7 +22,6 @@ from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-
 
 path = dirname(gassolar.environment.__file__)
 
@@ -419,15 +418,6 @@ class FlightState(Model):
                 qne == 0.5*rho*Vne**2
                ]
 
-def altitude(density):
-    " find air density "
-    g1 = 9.80665 # m/s^2
-    R = 287.04 # m^2/K/s^2
-    T11 = 216.65 # K
-    p11 = 22532 # Pa
-    p = density*R*T11
-    h = (11000 - R*T11/g1*np.log(p/p11))/0.3048
-    return h
 
 class FlightSegment(Model):
     """ Flight Segment
@@ -501,34 +491,63 @@ class Climb(Model):
 
     Variables
     ---------
-    h           60000       [ft]            climb altitude
-    t           500         [min]           time to climb
-    hdotmin                 [ft/min]        minimum climb rate
-    hdot                    [ft/min]        climb rate
-    T                       [N]             thrust to climb
-    rho         0.003097    [kg/m^3]        air density
-    V                       [m/s]           vehicle speed
-    mu          1.42e-5     [N*s/m^2]       viscosity
-    etaprop     0.85        [-]             propeller efficiency
+    h           60000           [ft]            climb altitude
+    t           500             [min]           time to climb
+    hdotmin                     [ft/min]        minimum climb rate
+    mu          1.42e-5         [N*s/m^2]       viscosity
+    etaprop     0.85            [-]             propeller efficiency
+    dh          self.hstep      [ft]            change in altitude
+
+    Variables of length N
+    ---------------------
+    dt                          [s]             time step
+    rho         self.density    [kg/m^3]        air density
+    V                           [m/s]           vehicle speed
+    hdot                        [ft/min]        climb rate
+    T                           [N]             thrust to climb
 
     """
+    def density(self, c):
+        " find air density "
+        ft2m, alpha = 0.3048, 0.0065 # conversion, K/m
+        h11k, T11k, p11k, rhosl = 11019, 216.483, 22532, 1.225 #m, K, Pa, kg/m^3
+        T0, R, gms, n = 288.16, 287.04, 9.81, 5.2561 #K, m^2/K/s^2, m/s^2, -
+        hrange = np.linspace(0, c[self.h], self.N+1)[1:]*ft2m
+        rho = []
+        for al in hrange:
+            if al < h11k:
+                T = T0 - alpha*al
+                rho.append(rhosl*(T/T0)**(n-1))
+            else:
+                p = p11k*np.exp((h11k - al)*gms/R/T11k)
+                rho.append(p/R/T11k)
+        return rho
 
-    def setup(self, aircraft):
+    def hstep(self, c):
+        return c[self.h]/self.N
+
+    def setup(self, N, aircraft):
+        self.N = N
         exec parse_variables(Climb.__doc__)
 
-        self.drag = AircraftDrag(aircraft, self)
+        with Vectorize(self.N):
+            self.drag = AircraftDrag(aircraft, self)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
         CL = self.CL = self.drag.CL
         S = self.S = aircraft.wing.planform.S
         Pshaft = self.drag.Pshaft
+        E = aircraft.battery.E
+        Poper = self.drag.Poper
 
         constraints = [
             Wtotal <= 0.5*rho*V**2*CL*S,
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
-            hdot >= hdotmin,
-            hdotmin == h/t,
-            Pshaft >= T*V/etaprop]
+            hdot >= dh/dt,
+            t >= sum(dt),
+            Pshaft >= T*V/etaprop,
+            E >= sum(Poper*dt)
+            ]
 
         return self.drag, constraints
 
@@ -562,7 +581,7 @@ class Mission(Model):
 
         self.solar = Aircraft(sp=sp)
         self.mission = []
-        self.mission.append(Climb(self.solar))
+        self.mission.append(Climb(5, self.solar))
         if day == 355 or day == 172:
             for l in latitude:
                 self.mission.append(FlightSegment(self.solar, l, day))
@@ -585,7 +604,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = True
-    M = Mission(latitude=[20], sp=SP)
+    SP = False
+    M = Mission(latitude=[15], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
