@@ -19,6 +19,7 @@ from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
 from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoom
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
@@ -538,11 +539,13 @@ class SteadyLevelFlight(Model):
     Variables
     ---------
     T                       [N]     thrust
-    etaprop         0.85    [-]     propeller efficiency
+    etaprop    .85            [-]     propeller efficiency
 
     """
     def setup(self, state, aircraft, perf):
         exec parse_variables(SteadyLevelFlight.__doc__)
+
+        self.prop = Propeller(state)
 
         Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.CL
@@ -554,7 +557,9 @@ class SteadyLevelFlight(Model):
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
                 T >= 0.5*rho*V**2*CD*S,
-                Pshaft >= T*V/etaprop]
+                Pshaft >= T*V/self.prop.eta,
+                self.prop.T == T,
+                ], self.prop
 
 class Mission(Model):
     "define mission for aircraft"
@@ -588,4 +593,4 @@ if __name__ == "__main__":
     SP = True
     M = Mission(latitude=[20], sp=SP)
     M.cost = M[M.solar.Wtotal]
-    sol = M.localsolve("mosek") if SP else M.solve("mosek")
+    sol = M.localsolve("mosek", iteration_limit=100) if SP else M.solve("mosek")
