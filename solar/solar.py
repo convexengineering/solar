@@ -136,7 +136,16 @@ class Aircraft(Model):
 
     Upper Unbounded
     ---------------
-    Wtotal, Wwing, Wcent
+    Wwing, Wcent, wing.mw (if sp)
+
+    Lower Unbounded
+    ---------------
+    wing.J, wing.Sy
+    emp.htail.J, emp.htail.Sy, emp.htail.mh (if sp), emp.htail.Vh (if sp)
+    emp.vtail.J, emp.vtail.Sy
+    emp.tailboom.J, emp.tailboom.Sy
+    motor.Pmax, motor.eta
+    battery.E, solarcells.S
 
     LaTex Strings
     -------------
@@ -267,7 +276,7 @@ class Motor(Model):
 
     Lower Unbounded
     ---------------
-    Pmax
+    Pmax, eta
 
     LaTex Strings
     -------------
@@ -516,6 +525,8 @@ class Climb(Model):
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
 
+        # since passing self, have to temporarily declare bounds
+        self.bounded = [(V.key, "lower")]
         self.drag = AircraftDrag(aircraft, self)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
