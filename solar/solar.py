@@ -525,8 +525,6 @@ class Climb(Model):
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
 
-        # since passing self, have to temporarily declare bounds
-        self.bounded = [(V.key, "lower")]
         self.drag = AircraftDrag(aircraft, self)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
