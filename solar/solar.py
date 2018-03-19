@@ -137,7 +137,17 @@ class Aircraft(Model):
 
     Upper Unbounded
     ---------------
-    Wtotal, Wwing, Wcent
+    Wwing, Wcent, wing.mw (if sp)
+
+    Lower Unbounded
+    ---------------
+    wing.spar.J, wing.spar.Sy
+    emp.htail.spar.J, emp.htail.spar.Sy
+    emp.vtail.spar.J, emp.vtail.spar.Sy
+    emp.tailboom.J, emp.tailboom.Sy
+    motor.Pmax, motor.eta
+    battery.E, solarcells.S
+    emp.htail.mh (if sp), emp.htail.Vh (if sp)
 
     LaTex Strings
     -------------
@@ -152,9 +162,8 @@ class Aircraft(Model):
     flight_model = AircraftPerf
 
     def setup(self, sp=False):
-        exec parse_variables(Aircraft.__doc__)
-
         self.sp = sp
+        exec parse_variables(Aircraft.__doc__)
 
         cfrpud.substitutions.update({cfrpud.rho: 1.5,
                                      cfrpud.E: 200,
@@ -269,7 +278,7 @@ class Motor(Model):
 
     Lower Unbounded
     ---------------
-    Pmax
+    Pmax, eta
 
     LaTex Strings
     -------------
@@ -516,8 +525,10 @@ class Climb(Model):
 
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
-
+        
         self.prop = aircraft.propeller.performance(self)
+        # since passing self, have to temporarily declare bounds
+        self.bounded = [(V.key, "lower")]
         self.drag = AircraftDrag(aircraft, self)
 
         self.components = [self.prop, self.drag]
