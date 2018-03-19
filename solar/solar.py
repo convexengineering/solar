@@ -140,12 +140,13 @@ class Aircraft(Model):
 
     Lower Unbounded
     ---------------
-    wing.J, wing.Sy
-    emp.htail.J, emp.htail.Sy, emp.htail.mh (if sp), emp.htail.Vh (if sp)
-    emp.vtail.J, emp.vtail.Sy
+    wing.spar.J, wing.spar.Sy
+    emp.htail.spar.J, emp.htail.spar.Sy
+    emp.vtail.spar.J, emp.vtail.spar.Sy
     emp.tailboom.J, emp.tailboom.Sy
     motor.Pmax, motor.eta
     battery.E, solarcells.S
+    emp.htail.mh (if sp), emp.htail.Vh (if sp)
 
     LaTex Strings
     -------------
@@ -160,9 +161,8 @@ class Aircraft(Model):
     flight_model = AircraftPerf
 
     def setup(self, sp=False):
-        exec parse_variables(Aircraft.__doc__)
-
         self.sp = sp
+        exec parse_variables(Aircraft.__doc__)
 
         cfrpud.substitutions.update({cfrpud.rho: 1.5,
                                      cfrpud.E: 200,
