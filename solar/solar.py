@@ -539,11 +539,8 @@ class Climb(Model):
         self.N = N
         exec parse_variables(Climb.__doc__)
 
-        # since passing self, have to temporarily declare bounds
-        self.bounded = [(V.key, "lower")]
         with Vectorize(self.N):
             self.drag = AircraftDrag(aircraft, self)
-
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
         CL = self.CL = self.drag.CL
