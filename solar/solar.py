@@ -527,8 +527,6 @@ class Climb(Model):
         exec parse_variables(Climb.__doc__)
 
         self.prop = aircraft.propeller.performance(self)
-        # since passing self, have to temporarily declare bounds
-        self.bounded = [(V.key, "lower")]
         self.drag = AircraftDrag(aircraft, self)
 
         self.components = [self.prop, self.drag]
