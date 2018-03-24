@@ -613,7 +613,7 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = False
+    SP = True
     M = Mission(latitude=[15], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")

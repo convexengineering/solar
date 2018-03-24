@@ -88,7 +88,7 @@ def plot_fits(cnstr, x, y):
     return figs
 
 if __name__ == "__main__":
-    Re_r = [125, 150, 200]
+    Re_r = [125, 150, 200, 300, 400, 500, 600]
     tau_r = {"scale": [80, 90, 100, 105],
              "tau": [0.1094, 0.1231, 0.13682, 0.146]}
     X, Y = fit_setup(Re_r, tau_r) # call fit(X, Y, 4, "SMA") to get fit
