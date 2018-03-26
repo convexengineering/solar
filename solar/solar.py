@@ -8,7 +8,7 @@ import numpy as np
 import gassolar.environment
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, parse_variables, Variable
+from gpkit import Model, parse_variables
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
@@ -20,10 +20,9 @@ from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoom
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels.GP.aircraft.prop.propeller import Propeller
+from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
-from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-
 
 path = dirname(gassolar.environment.__file__)
 
@@ -199,10 +198,10 @@ class Aircraft(Model):
             self.wing = WingGP()
         self.battery = Battery()
         self.motor = Motor()
-        self.propeller = Propeller()
+        self.prop = Propeller()
 
         self.components = [self.solarcells, self.wing, self.battery,
-                           self.emp, self.motor, self.propeller]
+                           self.emp, self.motor]
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -526,7 +525,7 @@ class Climb(Model):
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
 
-        self.prop = aircraft.propeller.performance(self)
+        self.prop = aircraft.prop.flight_model(aircraft.prop, self)
         self.drag = AircraftDrag(aircraft, self)
 
         self.components = [self.prop, self.drag]
@@ -552,13 +551,12 @@ class SteadyLevelFlight(Model):
     Variables
     ---------
     T                       [N]     thrust
-a
+
     """
     def setup(self, state, aircraft, perf):
         exec parse_variables(SteadyLevelFlight.__doc__)
 
-        
-        self.prop    = aircraft.propeller.performance(state)
+        self.prop = aircraft.prop.flight_model(aircraft.prop, state)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.CL
         CD = self.CD = perf.CD
@@ -571,7 +569,7 @@ a
                 T >= 0.5*rho*V**2*CD*S,
                 Pshaft >= T*V/self.prop.eta,
                 self.prop.T == T,
-                ], self.prop
+               ], self.prop
 
 class Mission(Model):
     "define mission for aircraft"
