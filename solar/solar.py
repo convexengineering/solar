@@ -8,7 +8,7 @@ import numpy as np
 import gassolar.environment
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, parse_variables, Variable
+from gpkit import Model, parse_variables
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
@@ -19,10 +19,10 @@ from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
 from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoom
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller
+from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
-from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-
 
 path = dirname(gassolar.environment.__file__)
 
@@ -198,6 +198,7 @@ class Aircraft(Model):
             self.wing = WingGP()
         self.battery = Battery()
         self.motor = Motor()
+        self.prop = Propeller()
 
         self.components = [self.solarcells, self.wing, self.battery,
                            self.emp, self.motor]
@@ -518,14 +519,16 @@ class Climb(Model):
     rho         0.003097    [kg/m^3]        air density
     V                       [m/s]           vehicle speed
     mu          1.42e-5     [N*s/m^2]       viscosity
-    etaprop     0.85        [-]             propeller efficiency
 
     """
 
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
 
+        self.prop = aircraft.prop.flight_model(aircraft.prop, self)
         self.drag = AircraftDrag(aircraft, self)
+
+        self.components = [self.prop, self.drag]
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
         CL = self.CL = self.drag.CL
@@ -535,11 +538,12 @@ class Climb(Model):
         constraints = [
             Wtotal <= 0.5*rho*V**2*CL*S,
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
+            self.prop.T == T,
             hdot >= hdotmin,
             hdotmin == h/t,
-            Pshaft >= T*V/etaprop]
+            Pshaft >= T*V/self.prop.eta]
 
-        return self.drag, constraints
+        return self.components, constraints
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
@@ -547,12 +551,12 @@ class SteadyLevelFlight(Model):
     Variables
     ---------
     T                       [N]     thrust
-    etaprop         0.85    [-]     propeller efficiency
 
     """
     def setup(self, state, aircraft, perf):
         exec parse_variables(SteadyLevelFlight.__doc__)
 
+        self.prop = aircraft.prop.flight_model(aircraft.prop, state)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.CL
         CD = self.CD = perf.CD
@@ -563,7 +567,9 @@ class SteadyLevelFlight(Model):
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
                 T >= 0.5*rho*V**2*CD*S,
-                Pshaft >= T*V/etaprop]
+                Pshaft >= T*V/self.prop.eta,
+                self.prop.T == T,
+               ], self.prop
 
 class Mission(Model):
     "define mission for aircraft"
@@ -597,4 +603,4 @@ if __name__ == "__main__":
     SP = True
     M = Mission(latitude=[20], sp=SP)
     M.cost = M[M.solar.Wtotal]
-    sol = M.localsolve("mosek") if SP else M.solve("mosek")
+    sol = M.localsolve("mosek", iteration_limit=100) if SP else M.solve("mosek")
