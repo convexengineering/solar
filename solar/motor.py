@@ -5,6 +5,7 @@ from gpkitmodels.GP.aircraft.prop.propeller import Propeller
 from gpkitmodels import g
 from gpkitmodels.GP.aircraft.wing.wing_test import FlightState
 import matplotlib.pyplot as plt
+from gpkit.constraints.tight import Tight as TCS
 class ElecMotor(Model):
     """ Electric Motor Model
 
@@ -13,7 +14,7 @@ class ElecMotor(Model):
     Qstar       1           [kg/(N*m)]         motor specific torque
     W                       [lbf]              motor weight
     Qmax                    [N*m]              motor max. torque
-    V_max       44          [V]                motor max voltage
+    V_max         300          [V]                motor max voltage
 
     """
     def setup(self):
@@ -35,11 +36,11 @@ class ElecMotor_Performance(Model):
     Pelec                   [kW]            motor input shaft power
     etam                    [-]             motor efficiency
     Q                       [N*m]           torque
-    omega                   [rad/s]         propeller rotation rate 
+    omega                   [rpm]         propeller rotation rate 
     i                       [amps]          current
     v                       [V]             woltage
-    i0         .001           [amps]          zero-load current
-    Kv         20           [rad/s/V]       motor voltage constant
+    i0         .1           [amps]          zero-load current
+    Kv         100            [rpm/V]       motor voltage constant
     R          .05             [ohms]          internal resistance
     """
     def setup(self,parent,  state):
@@ -51,8 +52,8 @@ class ElecMotor_Performance(Model):
                 etam == Pshaft/Pelec, 
                 parent.Qmax >= Q,
                 v <= parent.V_max,
-                i >= Q*Kv+i0,
-                v >= omega/Kv + i*R
+                TCS([i >= Q*Kv+i0]),
+                TCS([v >= omega/Kv + i*R])
                 ]
         return constraints
 
@@ -80,12 +81,19 @@ class Propulsor(Model):
 
 class Propulsor_Performance(Model):
     """Propulsor Performance Model
+    Variables
+    ---------
+    V_static       1                 [cm/s]              inflow velocity for static thrust
+
 
     """
     def setup(self, parent,state):
-
+        exec parse_variables(Propulsor_Performance.__doc__)
         self.prop    = parent.prop.flight_model(state)
         self.motor   = parent.motor.flight_model(state)
+        self.stat_FS = FlightState()
+        #self.stat_FS.substitutions[V_static]
+        #self.stat_prop = parent.prop.flight_model(stat_FS)
 
         self.components = [self.prop, self.motor]
 
@@ -93,7 +101,7 @@ class Propulsor_Performance(Model):
                         self.prop.omega == self.motor.omega
                         ]
 
-        return constraints, self.components
+        return constraints, self.components, self.stat_FS
 
 class Propulsor_Test(Model):
     """Propulsor Test Model
@@ -103,8 +111,8 @@ class Propulsor_Test(Model):
         fs = FlightState()
         p = Propulsor()
         pp = p.flight_model(fs)
-        pp.substitutions[pp.prop.T] = 20
-        self.cost = 1./pp.motor.etam + p.W/(100*units('lbf'))
+        pp.substitutions[pp.prop.T] = 50
+        self.cost = 1./pp.motor.etam + p.W/(10000000*units('lbf')) + 1./pp.prop.eta
 
         return fs,p,pp
 
