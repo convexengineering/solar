@@ -4,7 +4,7 @@ from gpkit import Model, parse_variables, SignomialsEnabled, SignomialEquality, 
 from gpkitmodels.GP.aircraft.prop.propeller import Propeller
 from gpkitmodels import g
 from gpkitmodels.GP.aircraft.wing.wing_test import FlightState
-
+import matplotlib.pyplot as plt
 class ElecMotor(Model):
     """ Electric Motor Model
 
@@ -13,7 +13,7 @@ class ElecMotor(Model):
     Qstar       1           [kg/(N*m)]         motor specific torque
     W                       [lbf]              motor weight
     Qmax                    [N*m]              motor max. torque
-    V_max       100         [V]                motor max voltage
+    V_max       44          [V]                motor max voltage
 
     """
     def setup(self):
@@ -38,9 +38,9 @@ class ElecMotor_Performance(Model):
     omega                   [rad/s]         propeller rotation rate 
     i                       [amps]          current
     v                       [V]             woltage
-    i0         .5           [amps]          zero-load current
+    i0         .001           [amps]          zero-load current
     Kv         20           [rad/s/V]       motor voltage constant
-    R          2             [ohms]          internal resistance
+    R          .05             [ohms]          internal resistance
     """
     def setup(self,parent,  state):
         exec parse_variables(ElecMotor_Performance.__doc__)
@@ -103,30 +103,54 @@ class Propulsor_Test(Model):
         fs = FlightState()
         p = Propulsor()
         pp = p.flight_model(fs)
-        pp.substitutions[pp.prop.T] = 100
-        self.cost = pp.motor.Pelec/units('kW') + p.W/units('N')
+        pp.substitutions[pp.prop.T] = 20
+        self.cost = 1./pp.motor.etam + p.W/(100*units('lbf'))
 
         return fs,p,pp
 
 def propulsor_test():
 
     test = Propulsor_Test()
-    sol = test.debug()
+    #sol = test.debug()
+    sol = test.solve()
     print sol.table()
 
-class Motor_Test(Model):
+class Motor_P_Test(Model):
     def setup(self):
         fs = FlightState()
-        m = ElecMotor()
-        mp = m.flight_model(fs)
-        mp.substitutions[mp.omega] = 100
+        m  = ElecMotor()
+        mp = ElecMotor_Performance(m,fs)
+        self.mp = mp
+        mp.substitutions[m.Qmax] = 100
         mp.substitutions[mp.Q]    = 10
-        self.cost = m.W
-        return mp, m, fs
+        self.cost = 1./mp.etam
+        return self.mp, fs
+
 def motor_test():
-    test = Motor_Test()
-    sol = test.debug()
+    test = Motor_P_Test()
+    sol = test.solve()
+    #sol = test.debug()
+
+    print sol.table()
+    
+def motor_eta_speed():
+    test = Motor_P_Test()
+    omega = [.01, 10, 100, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 3000, 4000, 10000, 100000]
+    eta = []
+    for o in omega:
+        test = Motor_P_Test()
+        test.substitutions[test.mp.omega] = o
+        sol = test.solve()
+        eta.append(sol["freevariables"]["etam"])
+
+    print omega
+    print eta
+    #sol = test.debug()
+    plt.plot(omega, eta)
+    plot.show()
     print sol.table()
     
 if __name__ == "__main__":
-    motor_test()
+    #motor_eta_speed()
+    #motor_test()
+    propulsor_test()

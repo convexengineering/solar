@@ -517,7 +517,7 @@ class Climb(Model):
     def setup(self, aircraft):
         exec parse_variables(Climb.__doc__)
 
-        self.prop = aircraft.propeller.performance(self)
+        self.prop = aircraft.propeller.flight_model(self)
         self.drag = AircraftDrag(aircraft, self)
 
         self.components = [self.prop, self.drag]
@@ -549,7 +549,7 @@ a
         exec parse_variables(SteadyLevelFlight.__doc__)
 
         
-        self.prop    = aircraft.propeller.performance(state)
+        self.prop    = aircraft.propeller.flight_model(state)
         Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.CL
         CD = self.CD = perf.CD
