@@ -217,7 +217,7 @@ class Aircraft(Model):
         Ssolar = self.Ssolar = self.solarcells.S
         mfsolar = self.mfsolar = self.solarcells.mfac
 
-        self.emp.substitutions[Vv] = 0.04
+        self.emp.substitutions[Vv] = 0.02
         self.emp.substitutions[self.emp.htail.skin.rhoA] = 0.4
         self.emp.substitutions[self.emp.vtail.skin.rhoA] = 0.4
         self.emp.substitutions[self.emp.tailboom.wlim] = 1.0

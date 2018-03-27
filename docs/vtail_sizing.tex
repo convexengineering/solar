@@ -1,0 +1,65 @@
+\documentclass[10pt, a4paper]{article}
+\usepackage{latexsym}
+\usepackage{amssymb,amsmath}
+\usepackage[pdftex]{graphicx}
+\newcommand{\dbar}[1]{\Bar{\Bar{#1}}}
+
+\topmargin = 0.1in \textwidth=5.7in \textheight=8.6in
+
+\oddsidemargin = 0.1in \evensidemargin = 0.1in
+
+% headers
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\chead{} 
+\rhead{\thepage} 
+% footer
+\lfoot{\small\scshape } 
+\cfoot{} 
+%%%% insert your name here %%%%
+\rfoot{\footnotesize Author} 
+\renewcommand{\headrulewidth}{.3pt} 
+\renewcommand{\footrulewidth}{.3pt}
+\setlength\voffset{-0.25in}
+\setlength\textheight{648pt}
+
+\begin{document}
+
+\title{Vertical Tail Sizing by Volume Coefficient}
+\author{Michael Burton}
+\maketitle
+
+For a very high aspect ratio aicraft, the vertical tail sizing may be sized by an adverse yaw requirement.  Looking at the stability derivatives, the maximum yaw force can be estimated
+
+\begin{align}
+    C_{n_p} &= \frac{C_{L_0}}{8} \\
+    \frac{\partial N}{\partial \bar{p}} &= C_{n_p} Q Sb \\
+    N_{\mathrm{max}} &= C_{n_p} Q S b \bar{p}_{\mathrm{max}}
+\end{align}
+
+The maximum moment from the rudder deflection must be at least equal to maximum yaw force
+
+\begin{align}
+    N_{\delta_{r_{\max}}} &= N_{\mathrm{max}} \\
+    N_{\delta_{r_{\max}}} &= C_{L_{V_{\mathrm{max}}}} Q S_{\mathrm{v}} l_{\mathrm{v}}
+\end{align}
+
+Which reduces to 
+
+\begin{align}
+    C_{L_{V_{\max}}} Q S_{\mathrm{v}} l_{\mathrm{v}} &= C_{n_p} Q S b \bar{p}_{\max} \\
+    \frac{S_{\mathrm{v}} l_{\mathrm{v}}}{Sb} &= \frac{C_{n_p} \bar{p}_{\max}}{C_{L_{V_{\max}}}} \\
+    V_{\mathrm{v}} &= \frac{C_{L_0} \bar{p}_{\max}}{8 C_{L_{V_{\max}}}}
+\end{align}
+
+Let us assume the following values:
+
+\begin{align}
+    C_{L_0} &= 1.3 \\
+    \bar{p}_{\max} &= 0.1 \\
+    C_{L_{V_{\max}}} &= 1.0 
+\end{align}
+
+This follows that $V_{\mathrm{v}} = 0.015$, which would be a requirement on the vertical tail size.  
+
+\end{document}
