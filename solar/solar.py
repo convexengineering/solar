@@ -132,6 +132,9 @@ class Aircraft(Model):
     mfac        1.05    [-]     total weight margin
     fland       0.02    [-]     fractional landing gear weight
     Wland               [lbf]   landing gear weight
+    minvttau    0.09    [-]     minimum vertical tail tau ratio
+    minhttau    0.06    [-]     minimum horizontal tail tau ratio
+    maxtau      0.144   [-]     maximum wing tau ratio
 
     Upper Unbounded
     ---------------
@@ -216,6 +219,8 @@ class Aircraft(Model):
         Volbatt = self.Volbatt = self.battery.Volbatt
         Ssolar = self.Ssolar = self.solarcells.S
         mfsolar = self.mfsolar = self.solarcells.mfac
+        vttau = self.emp.vtail.planform.tau
+        httau = self.emp.htail.planform.tau
 
         self.emp.substitutions[Vv] = 0.02
         self.emp.substitutions[self.emp.htail.skin.rhoA] = 0.4
@@ -232,6 +237,9 @@ class Aircraft(Model):
                        Vv <= Sv*lv/Sw/b,
                        d0 <= tau*croot,
                        Wland >= fland*Wtotal,
+                       vttau >= minvttau,
+                       httau >= minhttau,
+                       tau <= maxtau
                       ]
 
         if self.fuseModel:
