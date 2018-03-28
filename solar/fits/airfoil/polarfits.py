@@ -33,26 +33,36 @@ def text_to_df(filename):
     df = pd.DataFrame(data)
     return df
 
-def fit_setup(re_range, tau_range):
+def fit_setup(re_range, tau_range, ncrit_range):
     "set up x and y parameters for gp fitting"
     CL = []
     CD = []
     RE = []
     tau = []
-    for i in range(len(tau_range["scale"])):
-        for r in re_range:
-            dataf = text_to_df("dai1336a.%d.ncrit09.Re%dk.pol" % (
-                tau_range["scale"][i], r))
-            CL.append(dataf["CL"].values.astype(np.float))
-            CD.append(dataf["CD"].values.astype(np.float))
-            RE.append([r*1000.0]*len(CL[-1]))
-            tau.append([tau_range["tau"][i]]*len(CL[-1]))
+    ncrit = []
+    for nc in ncrit_range:
+        for i in range(len(tau_range["scale"])):
+            for r in re_range:
+                dataf = text_to_df("dai1336a.%d.ncrit0%d.Re%dk.pol" % (
+                    tau_range["scale"][i], nc, r))
+                cl = dataf["CL"].values.astype(np.float)
+                cd = dataf["CD"].values.astype(np.float)
+                cd = cd[cl <= 1.5]
+                cl = cl[cl <= 1.5]
+                # CL.append(dataf["CL"].values.astype(np.float))
+                # CD.append(dataf["CD"].values.astype(np.float))
+                CL.append(cl)
+                CD.append(cd)
+                RE.append([r*1000.0]*len(CL[-1]))
+                tau.append([tau_range["tau"][i]]*len(CL[-1]))
+                ncrit.append([nc]*len(CL[-1]))
 
     u1 = np.hstack(CL)
     u2 = np.hstack(RE)
     u3 = np.hstack(tau)
+    u4 = np.hstack(ncrit)
     w = np.hstack(CD)
-    u = [u1, u2, u3]
+    u = [u1, u2, u3, u4]
     x = np.log(u)
     y = np.log(w)
     return x, y
@@ -88,10 +98,11 @@ def plot_fits(cnstr, x, y):
     return figs
 
 if __name__ == "__main__":
-    Re_r = [125, 150, 200, 300, 400, 500, 600]
+    Re_r = [125, 140, 150, 175, 200, 250, 300, 400]
     tau_r = {"scale": [80, 90, 100, 105],
-             "tau": [0.1094, 0.1231, 0.13682, 0.146]}
-    X, Y = fit_setup(Re_r, tau_r) # call fit(X, Y, 4, "SMA") to get fit
+             "tau": [0.1094, 0.1231, 0.13682, 0.143662]}
+    Ncrit_r = [5, 9]
+    X, Y = fit_setup(Re_r, tau_r, Ncrit_r) # call fit(X, Y, 4, "SMA") to get fit
     np.random.seed(0)
     cn, err = fit(X, Y, 3, "SMA")
     print "RMS error: %.5f" % err
@@ -100,4 +111,4 @@ if __name__ == "__main__":
 
     Fs = plot_fits(cn, X, Y)
     for t, F in zip(tau_r["scale"], Fs):
-        F.savefig("dai1336a.%d.fits.pdf" % t, bbox_inches="tight")
+        F.savefig("dai1336a.%d.fits6.pdf" % t, bbox_inches="tight")

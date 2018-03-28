@@ -1,5 +1,7 @@
 AIRFOIL=$1
-POLARFILE=$1.ncrit09.Re$2k.pol
+REN=$2
+NCRIT=$3
+POLARFILE=$1.ncrit0$3.Re$2k.pol
 
 if [ -f $POLARFILE ] ; then
     rm $POLARFILE
@@ -9,6 +11,9 @@ xfoil << EOF
 load $1.dat
 oper
 v $2e3
+vpar
+n $3
+
 pacc 
 $POLARFILE
 
