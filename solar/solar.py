@@ -107,7 +107,9 @@ class AircraftDrag(Model):
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
 
         if static.Npod is not 0:
-            self.fuse = static.fuselage.flight_model(static.fuselage, state)
+            with Vectorize(static.Npod):
+                self.fuse = static.fuselage.flight_model(static.fuselage,
+                                                         state)
             self.flight_models.extend([self.fuse])
             cdfuse = self.fuse.Cd
             Sfuse = static.fuselage.S
@@ -245,8 +247,9 @@ class Aircraft(Model):
                       ]
 
         if self.Npod is not 0:
-            with Vectorize(self.Npod):
-                self.fuselage = Fuselage()
+            with Vectorize(1):
+                with Vectorize(self.Npod):
+                    self.fuselage = Fuselage()
             self.k = self.fuselage.k
             constraints.extend([
                 Volbatt/3. <= self.fuselage.Vol,
@@ -519,7 +522,7 @@ class Climb(Model):
     etaprop     0.85            [-]             propeller efficiency
     dh          self.hstep      [ft]            change in altitude
 
-    Variables of length N
+    Variables of length [1,N]
     ---------------------
     dt                          [s]             time step
     rho         self.density    [kg/m^3]        air density
@@ -629,5 +632,5 @@ if __name__ == "__main__":
     SP = True
     Vehicle = Aircraft(Npod=3, sp=SP)
     M = Mission(Vehicle, latitude=[15])
-    M.cost = M[M.solar.Wtotal]
+    M.cost = M[M.aircraft.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
