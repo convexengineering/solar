@@ -19,9 +19,11 @@ from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
 from gpkitmodels.GP.aircraft.tail.vertical_tail import VerticalTail
 from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoom
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
+from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
+from gpkitmodels.GP.aircraft.wing.sparloading import SparLoading
+from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
-from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
 
 path = dirname(gassolar.environment.__file__)
 
@@ -104,10 +106,9 @@ class AircraftDrag(Model):
 
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
 
-        if static.fuseModel:
+        if static.Npod is not 0:
             self.fuse = static.fuselage.flight_model(static.fuselage, state)
             self.flight_models.extend([self.fuse])
-
             cdfuse = self.fuse.Cd
             Sfuse = static.fuselage.S
             dvars.append(cdfuse*Sfuse/Sw)
@@ -138,7 +139,7 @@ class Aircraft(Model):
 
     Upper Unbounded
     ---------------
-    Wwing, Wcent, wing.mw (if sp)
+    Wwing, Wcent, k, wing.mw (if sp)
 
     Lower Unbounded
     ---------------
@@ -162,7 +163,8 @@ class Aircraft(Model):
     fuseModel = None
     flight_model = AircraftPerf
 
-    def setup(self, sp=False):
+    def setup(self, Npod, sp=False):
+        self.Npod = Npod
         self.sp = sp
         exec parse_variables(Aircraft.__doc__)
 
@@ -242,15 +244,17 @@ class Aircraft(Model):
                        tau <= maxtau
                       ]
 
-        if self.fuseModel:
-            self.fuselage = self.fuseModel()
-            self.components.extend([self.fuselage])
+        if self.Npod is not 0:
+            with Vectorize(self.Npod):
+                self.fuselage = Fuselage()
+            self.k = self.fuselage.k
             constraints.extend([
-                Volbatt <= self.fuselage.Vol,
+                Volbatt/3. <= self.fuselage.Vol,
                 Wwing >= self.wing.W + self.solarcells.W,
                 Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W
-                          + self.fuselage.W + self.battery.W),
+                          + self.fuselage.W + self.battery.W/3.),
                 ])
+            self.components.extend([self.fuselage])
         else:
             constraints.extend([
                 Wwing >= sum([c.W for c in [self.wing, self.battery,
@@ -440,7 +444,7 @@ class FlightSegment(Model):
     """ Flight Segment
     """
     def setup(self, aircraft, latitude=35, day=355):
-        exec parse_variables(FlightSegment.__doc__)
+        # exec parse_variables(FlightSegment.__doc__)
 
         self.latitude = latitude
         self.day = day
@@ -541,6 +545,7 @@ class Climb(Model):
         return rho
 
     def hstep(self, c):
+        " find delta altitude "
         return c[self.h]/self.N
 
     def setup(self, N, aircraft):
@@ -594,22 +599,22 @@ class SteadyLevelFlight(Model):
 
 class Mission(Model):
     "define mission for aircraft"
-    def setup(self, latitude=range(1, 21, 1), day=355, sp=False):
+    def setup(self, aircraft, latitude=range(1, 21, 1), day=355):
 
-        self.solar = Aircraft(sp=sp)
+        self.aircraft = aircraft
         self.mission = []
-        self.mission.append(Climb(5, self.solar))
+        self.mission.append(Climb(5, self.aircraft))
         if day == 355 or day == 172:
             for l in latitude:
-                self.mission.append(FlightSegment(self.solar, l, day))
+                self.mission.append(FlightSegment(self.aircraft, l, day))
         else:
             assert day < 172
             for l in latitude:
-                self.mission.append(FlightSegment(self.solar, l, day))
-                self.mission.append(FlightSegment(self.solar, l,
+                self.mission.append(FlightSegment(self.aircraft, l, day))
+                self.mission.append(FlightSegment(self.aircraft, l,
                                                   355 - 10 - day))
 
-        return self.mission, self.solar
+        return self.mission, self.aircraft
 
 def test():
     " test model for continuous integration "
@@ -622,6 +627,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    M = Mission(latitude=[15], sp=SP)
+    Vehicle = Aircraft(Npod=3, sp=SP)
+    M = Mission(Vehicle, latitude=[15])
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
