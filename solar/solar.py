@@ -24,6 +24,7 @@ from gpkitmodels.GP.aircraft.wing.sparloading import SparLoading
 from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
+from gpkit import SignomialsEnabled, VectorVariable
 
 path = dirname(gassolar.environment.__file__)
 
@@ -196,12 +197,12 @@ class Aircraft(Model):
             WingSP.sparModel = BoxSpar
             WingSP.fillModel = None
             WingSP.skinModel = WingSecondStruct
-            self.wing = WingSP()
+            self.wing = WingSP(N=10)
         else:
             WingGP.sparModel = BoxSpar
             WingGP.fillModel = None
             WingGP.skinModel = WingSecondStruct
-            self.wing = WingGP()
+            self.wing = WingGP(N=10)
         self.battery = Battery()
         self.motor = Motor()
 
@@ -446,7 +447,7 @@ class FlightState(Model):
 class FlightSegment(Model):
     """ Flight Segment
     """
-    def setup(self, aircraft, latitude=35, day=355):
+    def setup(self, aircraft, latitude=35, day=355, sp=False):
         # exec parse_variables(FlightSegment.__doc__)
 
         self.latitude = latitude
@@ -545,7 +546,7 @@ class Climb(Model):
             else:
                 p = p11k*np.exp((h11k - al)*gms/R/T11k)
                 rho.append(p/R/T11k)
-        return rho
+        return [rho]
 
     def hstep(self, c):
         " find delta altitude "
@@ -602,20 +603,20 @@ class SteadyLevelFlight(Model):
 
 class Mission(Model):
     "define mission for aircraft"
-    def setup(self, aircraft, latitude=range(1, 21, 1), day=355):
+    def setup(self, aircraft, latitude=range(1, 21, 1), day=355, sp=False):
 
         self.aircraft = aircraft
         self.mission = []
         self.mission.append(Climb(5, self.aircraft))
         if day == 355 or day == 172:
             for l in latitude:
-                self.mission.append(FlightSegment(self.aircraft, l, day))
+                self.mission.append(FlightSegment(self.aircraft, l, day, sp=sp))
         else:
             assert day < 172
             for l in latitude:
-                self.mission.append(FlightSegment(self.aircraft, l, day))
+                self.mission.append(FlightSegment(self.aircraft, l, day, sp=sp))
                 self.mission.append(FlightSegment(self.aircraft, l,
-                                                  355 - 10 - day))
+                                                  355 - 10 - day, sp=sp))
 
         return self.mission, self.aircraft
 
