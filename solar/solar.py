@@ -70,7 +70,7 @@ class AircraftDrag(Model):
     Ppay        100     [W]     payload power draw
     Poper               [W]     operating power
     mpower      1.05    [-]     power margin
-    T                   [-]     thrust
+    T                   [lbf]     thrust
 
     LaTex Strings
     -------------
@@ -89,9 +89,9 @@ class AircraftDrag(Model):
         self.tailboom   = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
-        self.propeller = static.propeller.flight_model(aircraft.propeller, self)
+        self.propeller = static.propeller.flight_model(static.propeller, state)
 
-        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom, self.motor]
+        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom, self.motor, self.propeller]
 
         e = self.e = self.wing.e
         cdht = self.cdht = self.htail.Cd
@@ -118,9 +118,12 @@ class AircraftDrag(Model):
             dvars.append(cdfuse*Sfuse/Sw)
 
         constraints = [cda >= sum(dvars),
+                       self.propeller.T==T,
+                       self.motor.Q == self.propeller.Q,
+                       self.motor.omega == self.propeller.omega,
                        CD/mfac >= cda + cdw,
                        Poper/mpower >= Pavn + Ppay + self.motor.Pelec,
-                       Pshaft == self.motor.Pshaft,
+                       #Pshaft == self.motor.Pshaft,
                        #Poper <= Pmax
                        ]
 
@@ -521,7 +524,6 @@ class Climb(Model):
     dt                          [s]             time step
     V                           [m/s]           vehicle speed
     hdot                        [ft/min]        climb rate
-    T                           [N]             thrust to climb
     rho         self.density    [kg/m^3]        air density
     """
     
@@ -559,6 +561,7 @@ class Climb(Model):
         Pshaft = self.drag.Pshaft
         E = aircraft.battery.E
         Poper = self.drag.Poper
+        T = self.drag.T
         self.rho = rho
 
         constraints = [
@@ -567,7 +570,7 @@ class Climb(Model):
             hdot >= dh/dt,
             t >= sum(dt),
             #Pshaft >= T*V/self.propeller.eta,
-            Pshaft >= T*V/etaprop,
+            #Pshaft >= T*V/etaprop,
             #self.propeller.T == T,
             #self.propeller.Q == self.drag.motor.Q,
             #self.propeller.omega == self.drag.motor.omega,
@@ -595,18 +598,18 @@ class SteadyLevelFlight(Model):
         S = self.S = aircraft.wing.planform.S
         rho = self.rho = state.rho
         V = self.V = state.V
-        self.propeller = aircraft.propeller.flight_model(aircraft.propeller, state)
+        #self.propeller = aircraft.propeller.flight_model(aircraft.propeller, state)
         #self.propeller.substitutions['omega'] = 1000
 
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
                 T >= 0.5*rho*V**2*CD*S,
-                Pshaft >= T*V/self.propeller.eta,
-                self.propeller.T == T,
+                #Pshaft >= T*V/self.propeller.eta,
+                perf.drag.T == T,
                 #self.propeller.P_shaft == Pshaft,
-                self.propeller.Q == perf.drag.motor.Q,
-                perf.drag.motor.omega == self.propeller.omega], self.propeller
-
+                #self.propeller.Q == perf.drag.motor.Q,
+                #perf.drag.motor.omega == self.propeller.omega], self.propeller
+                ]
 class Mission(Model):
     "define mission for aircraft"
     def setup(self, latitude=range(1, 21, 1), day=355, sp=False):
@@ -637,7 +640,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    M = Mission(latitude=[11], sp=SP)
+    M = Mission(latitude=[10], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
     #sol = M.debug()
