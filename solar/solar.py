@@ -515,7 +515,6 @@ class Climb(Model):
     t           500             [min]           time to climb
     hdotmin                     [ft/min]        minimum climb rate
     mu          1.42e-5         [N*s/m^2]       viscosity
-    etaprop     .75              [-]             propeller efficiency
     dh          self.hstep      [ft]            change in altitude
 
 
