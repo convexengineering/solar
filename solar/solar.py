@@ -70,6 +70,7 @@ class AircraftDrag(Model):
     Ppay        100     [W]     payload power draw
     Poper               [W]     operating power
     mpower      1.05    [-]     power margin
+    T                   [-]     thrust
 
     LaTex Strings
     -------------
@@ -82,12 +83,13 @@ class AircraftDrag(Model):
 
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
 
-        self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
-        self.htail = static.emp.htail.flight_model(static.emp.htail, state)
-        self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
-        self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
+        self.wing       = static.wing.flight_model(static.wing, state, fitdata=fd)
+        self.htail      = static.emp.htail.flight_model(static.emp.htail, state)
+        self.vtail      = static.emp.vtail.flight_model(static.emp.vtail, state)
+        self.tailboom   = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
+        self.propeller = static.propeller.flight_model(aircraft.propeller, self)
 
         self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom, self.motor]
 
@@ -548,7 +550,6 @@ class Climb(Model):
 
         with Vectorize(self.N):
             self.drag = AircraftDrag(aircraft, self)
-            self.propeller = aircraft.propeller.flight_model(aircraft.propeller, self)
         
 
         Wtotal = self.Wtotal = aircraft.Wtotal
@@ -565,15 +566,15 @@ class Climb(Model):
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
             hdot >= dh/dt,
             t >= sum(dt),
-            Pshaft >= T*V/self.propeller.eta,
-            #Pshaft >= T*V/etaprop,
-            self.propeller.T == T,
-            self.propeller.Q == self.drag.motor.Q,
-            self.propeller.omega == self.drag.motor.omega,
+            #Pshaft >= T*V/self.propeller.eta,
+            Pshaft >= T*V/etaprop,
+            #self.propeller.T == T,
+            #self.propeller.Q == self.drag.motor.Q,
+            #self.propeller.omega == self.drag.motor.omega,
             E >= sum(Poper*dt),
             ]
 
-        return self.drag, constraints, self.propeller
+        return self.drag, constraints,# self.propeller
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
