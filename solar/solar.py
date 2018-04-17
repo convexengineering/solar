@@ -22,7 +22,7 @@ from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp#, SimpleQProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 
 path = dirname(gassolar.environment.__file__)
@@ -103,8 +103,7 @@ class AircraftDrag(Model):
         Stb = self.Stb = static.emp.tailboom.S
         cdw = self.cdw = self.wing.Cd
         self.CL = self.wing.CL
-        #etamotor = self.motor.eta
-        #Pmax = self.Pmax = static.motor.Pmax
+
         
         self.wing.substitutions[e] = 0.95
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
@@ -123,8 +122,6 @@ class AircraftDrag(Model):
                        self.motor.omega == self.propeller.omega,
                        CD/mfac >= cda + cdw,
                        Poper/mpower >= Pavn + Ppay + self.motor.Pelec,
-                       #Pshaft == self.motor.Pshaft,
-                       #Poper <= Pmax
                        ]
 
         return self.flight_models, constraints
@@ -209,6 +206,7 @@ class Aircraft(Model):
         self.battery = Battery()
         self.motor = Motor()
         Propeller.flight_model = ActuatorProp
+        #Propeller.flight_model = SimpleQProp
         self.propeller = Propeller()
         self.components = [self.solarcells, self.wing, self.battery,
                            self.emp, self.motor, self.propeller]
@@ -268,37 +266,6 @@ class Aircraft(Model):
 
         return constraints, self.components, materials
 
-#class Motor(Model):
-    """ Motor Model
-
-    Variables
-    ---------
-    W                   [lbf]       motor weight
-    Pmax                [W]         max power
-    Bpm     1/0.0003    [W/kg]      power mass ratio
-    m                   [kg]        motor mass
-    eta                 [-]         motor system efficiency
-    etam    0.95        [-]         motor efficiency
-    etac    0.97        [-]         controller efficiency
-
-    Upper Unbounded
-    ---------------
-    W
-
-    Lower Unbounded
-    ---------------
-    Pmax, eta
-
-    LaTex Strings
-    -------------
-    Pmax        P_{\\mathrm{max}}
-    Bpm         B_{\\mathrm{PM}}
-    eta         \\eta
-
-    """
-#    def setup(self):
-#        exec parse_variables(Motor.__doc__)
-#        return [Pmax <= Bpm*m, W >= m*g, eta <= etam*etac]
 
 class Battery(Model):
     """ Battery Model
@@ -569,11 +536,6 @@ class Climb(Model):
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
             hdot >= dh/dt,
             t >= sum(dt),
-            #Pshaft >= T*V/self.propeller.eta,
-            #Pshaft >= T*V/etaprop,
-            #self.propeller.T == T,
-            #self.propeller.Q == self.drag.motor.Q,
-            #self.propeller.omega == self.drag.motor.omega,
             E >= sum(Poper*dt),
             ]
 
@@ -604,11 +566,7 @@ class SteadyLevelFlight(Model):
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
                 T >= 0.5*rho*V**2*CD*S,
-                #Pshaft >= T*V/self.propeller.eta,
                 perf.drag.T == T,
-                #self.propeller.P_shaft == Pshaft,
-                #self.propeller.Q == perf.drag.motor.Q,
-                #perf.drag.motor.omega == self.propeller.omega], self.propeller
                 ]
 class Mission(Model):
     "define mission for aircraft"
