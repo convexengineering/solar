@@ -22,7 +22,7 @@ from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-from gpkitmodels.GP.aircraft.prop.propeller import Actuator_Propeller
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 
 path = dirname(gassolar.environment.__file__)
@@ -145,7 +145,7 @@ class Aircraft(Model):
 
     Upper Unbounded
     ---------------
-    Wwing, Wcent, wing.mw (if sp)
+    Wwing, Wcent, wing.mw (if sp), propeller.c
 
     Lower Unbounded
     ---------------
@@ -156,7 +156,7 @@ class Aircraft(Model):
     motor.Qmax
     battery.E, solarcells.S
     emp.htail.mh (if sp), emp.htail.Vh (if sp)
-    propeller.R, propeller.T_m
+    propeller.R, propeller.T_m, propeller.c
 
     LaTex Strings
     -------------
@@ -208,7 +208,8 @@ class Aircraft(Model):
             self.wing = WingGP()
         self.battery = Battery()
         self.motor = Motor()
-        self.propeller = Actuator_Propeller()
+        Propeller.flight_model = ActuatorProp
+        self.propeller = Propeller()
         self.components = [self.solarcells, self.wing, self.battery,
                            self.emp, self.motor, self.propeller]
 
@@ -639,7 +640,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    M = Mission(latitude=[10], sp=SP)
+    M = Mission(latitude=[20], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
     #sol = M.debug()
