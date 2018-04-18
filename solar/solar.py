@@ -103,6 +103,12 @@ class AircraftDrag(Model):
         Stb = self.Stb = static.emp.tailboom.S
         cdw = self.cdw = self.wing.Cd
         self.CL = self.wing.CL
+        Tprop = self.propeller.T
+        Qprop = self.propeller.Q
+        RPMprop = self.propeller.omega
+        Qmotor = self.motor.Q
+        RPMmotor = self.motor.omega
+        Pelec = self.motor.Pelec
 
         
         self.wing.substitutions[e] = 0.95
@@ -117,11 +123,11 @@ class AircraftDrag(Model):
             dvars.append(cdfuse*Sfuse/Sw)
 
         constraints = [cda >= sum(dvars),
-                       self.propeller.T==T,
-                       self.motor.Q == self.propeller.Q,
-                       self.motor.omega == self.propeller.omega,
+                       Tprop==T,
+                       Qmotor == Qprop,
+                       RPMmotor == RPMprop,
                        CD/mfac >= cda + cdw,
-                       Poper/mpower >= Pavn + Ppay + self.motor.Pelec,
+                       Poper/mpower >= Pavn + Ppay + Pelec,
                        ]
 
         return self.flight_models, constraints
@@ -539,7 +545,7 @@ class Climb(Model):
             E >= sum(Poper*dt),
             ]
 
-        return self.drag, constraints,# self.propeller
+        return self.drag, constraints
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
@@ -560,8 +566,7 @@ class SteadyLevelFlight(Model):
         S = self.S = aircraft.wing.planform.S
         rho = self.rho = state.rho
         V = self.V = state.V
-        #self.propeller = aircraft.propeller.flight_model(aircraft.propeller, state)
-        #self.propeller.substitutions['omega'] = 1000
+ 
 
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
@@ -598,7 +603,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    M = Mission(latitude=[20], sp=SP)
+    M = Mission(latitude=[10], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
     #sol = M.debug()
