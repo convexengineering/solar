@@ -552,8 +552,6 @@ class SteadyLevelFlight(Model):
 
     Variables
     ---------
-    T                       [N]     thrust
-    etaprop                 [-]     propeller efficiency
 
     """
     def setup(self, state, aircraft, perf):
@@ -570,8 +568,7 @@ class SteadyLevelFlight(Model):
 
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
-                T >= 0.5*rho*V**2*CD*S,
-                perf.drag.T == T,
+                perf.drag.T >= 0.5*rho*V**2*CD*S
                 ]
 class Mission(Model):
     "define mission for aircraft"
