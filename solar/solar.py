@@ -604,4 +604,4 @@ if __name__ == "__main__":
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
     #sol = M.debug()
-    print sol.table()
+    #print sol.table()
