@@ -22,7 +22,7 @@ from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp#, SimpleQProp
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp, MultiElementProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 
 path = dirname(gassolar.environment.__file__)
@@ -30,10 +30,10 @@ path = dirname(gassolar.environment.__file__)
 class AircraftPerf(Model):
     """ Aircaft Performance
     """
-    def setup(self, static, state):
+    def setup(self, static, state, onDesign = False):
         exec parse_variables(AircraftPerf.__doc__)
 
-        self.drag = AircraftDrag(static, state)
+        self.drag = AircraftDrag(static, state, onDesign)
         self.CD = self.drag.CD
         self.CL = self.drag.CL
         self.Pshaft = self.drag.Pshaft
@@ -78,7 +78,7 @@ class AircraftDrag(Model):
     cda         CDA
     mfac        m_{\\mathrm{fac}}
     """
-    def setup(self, static, state):
+    def setup(self, static, state, onDesign = False):
         exec parse_variables(AircraftDrag.__doc__)
 
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
@@ -89,6 +89,9 @@ class AircraftDrag(Model):
         self.tailboom   = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
+        if onDesign:
+            static.propeller.flight_model = MultiElementProp
+
         self.propeller = static.propeller.flight_model(static.propeller, state)
 
         self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom, self.motor, self.propeller]
@@ -206,7 +209,6 @@ class Aircraft(Model):
         self.battery = Battery()
         self.motor = Motor()
         Propeller.flight_model = ActuatorProp
-        #Propeller.flight_model = SimpleQProp
         self.propeller = Propeller()
         self.components = [self.solarcells, self.wing, self.battery,
                            self.emp, self.motor, self.propeller]
@@ -418,7 +420,7 @@ class FlightSegment(Model):
 
         self.aircraft = aircraft
         self.fs = FlightState(latitude=latitude, day=day)
-        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs)
+        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, True)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
@@ -598,7 +600,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    M = Mission(latitude=[20], sp=SP)
+    M = Mission(latitude=[15], sp=SP)
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
     #sol = M.debug()
