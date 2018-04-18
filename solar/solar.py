@@ -83,10 +83,10 @@ class AircraftDrag(Model):
 
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
 
-        self.wing       = static.wing.flight_model(static.wing, state, fitdata=fd)
-        self.htail      = static.emp.htail.flight_model(static.emp.htail, state)
-        self.vtail      = static.emp.vtail.flight_model(static.emp.vtail, state)
-        self.tailboom   = static.emp.tailboom.flight_model(static.emp.tailboom,
+        self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
+        self.htail = static.emp.htail.flight_model(static.emp.htail, state)
+        self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
+        self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
         self.propeller = static.propeller.flight_model(static.propeller, state)
@@ -564,11 +564,12 @@ class SteadyLevelFlight(Model):
         S = self.S = aircraft.wing.planform.S
         rho = self.rho = state.rho
         V = self.V = state.V
+        T = perf.drag.T
  
 
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
-                perf.drag.T >= 0.5*rho*V**2*CD*S
+                T >= 0.5*rho*V**2*CD*S
                 ]
 class Mission(Model):
     "define mission for aircraft"
