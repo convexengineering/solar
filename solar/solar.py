@@ -49,18 +49,9 @@ class AircraftPerf(Model):
         tnight = self.tnight = state.tnight
         PSmin = self.PSmin = state.PSmin
 
-        if static.Npod is not 0:
-            Etot = sum(E)
-            with SignomialsEnabled():
-                night = Etot*etadischarge >= (Poper*tnight
-                                              + EStwi*etasolar*Ssolar),
-        else:
-            Etot = E
-            night = Etot*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
-
         constraints = [
-            ESirr >= (ESday + Etot/etacharge/etasolar/Ssolar),
-            night,
+            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
+            E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
             Poper == PSmin*Ssolar*etasolar]
 
         return self.drag, constraints
@@ -187,6 +178,7 @@ class Aircraft(Model):
         TailBoom.secondaryWeight = True
         self.emp = Empennage(N=5)
         self.solarcells = SolarCells()
+        self.battery = Battery()
         if sp:
             WingSP.sparModel = BoxSpar
             WingSP.fillModel = None
@@ -199,7 +191,8 @@ class Aircraft(Model):
             self.wing = WingGP(N=10)
         self.motor = Motor()
 
-        self.components = [self.solarcells, self.wing, self.emp, self.motor]
+        self.components = [self.solarcells, self.wing, self.emp, self.motor,
+                           self.battery]
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -215,6 +208,7 @@ class Aircraft(Model):
         d0 = self.d0 = self.emp.tailboom.d0
         Ssolar = self.Ssolar = self.solarcells.S
         mfsolar = self.mfsolar = self.solarcells.mfac
+        Volbatt = self.battery.Volbatt
         vttau = self.emp.vtail.planform.tau
         httau = self.emp.htail.planform.tau
         Wmotor = self.motor.W
@@ -245,32 +239,22 @@ class Aircraft(Model):
             with Vectorize(1):
                 with Vectorize(self.Npod):
                     self.fuselage = Fuselage()
-            with Vectorize(self.Npod):
-                self.battery = Battery()
 
             self.k = self.fuselage.k
-            Volbatt = self.Volbatt = self.battery.Volbatt
             Volfuse = self.Volfuse = self.fuselage.Vol[:, 0]
-            Wbatt = sum(self.battery.W)
+            Wbatt = self.battery.W
             Wfuse = sum(self.fuselage.W)
 
-            for i in range(1, self.Npod, 2):
-                constraints.extend([self.battery.W[i] == self.battery.W[i+1],
-                                    self.battery.E[i] == self.battery.E[i+1]])
             constraints.extend([
                 Volbatt <= Volfuse,
                 Wwing >= self.wing.W + self.solarcells.W,
                 Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W
-                          + self.fuselage.W[0] + self.battery.W[0]),
-                Wtotal/mfac >= (Wpay + Wavn + Wland + Wbatt + Wfuse + Wmotor
-                                + Wemp + Wwing + Wsolar)
+                          + self.fuselage.W[0] + Wbatt/self.Npod),
+                Wtotal/mfac >= (Wpay + Wavn + Wland + Wfuse +
+                                sum([c.W for c in self.components]))
                 ])
-            self.components.extend([self.fuselage, self.battery])
+            self.components.append(self.fuselage)
         else:
-            self.battery = Battery()
-            Volbatt = self.battery.Volbatt
-            Wbatt = self.battery.W
-            self.components.append(self.battery)
             constraints.extend([
                 Wwing >= sum([c.W for c in [self.wing, self.battery,
                                             self.solarcells]]),
@@ -474,13 +458,6 @@ class FlightSegment(Model):
             if aircraft.Npod is not 1:
                 assert self.aircraft.sp
                 loadsp = self.aircraft.sp
-                z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
-                Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
-                ypod = Nwing/((Npod-1)/2 + 1)
-                y0len = ypod-1
-                sout = np.hstack([[z0]*y0len + [self.aircraft.battery.W[i]]
-                                  for i in range(1, Npod, 2)])
-                sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
             else:
                 loadsp = False
         else:
@@ -537,6 +514,13 @@ class FlightSegment(Model):
 
         if self.aircraft.Npod is not 0:
             if self.aircraft.Npod is not 1:
+                z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
+                Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
+                ypod = Nwing/((Npod-1)/2 + 1)
+                y0len = ypod-1
+                weight = self.aircraft.battery.W/Npod*self.wingg.N
+                sout = np.hstack([[z0]*y0len + [weight]]*(Npod/2))
+                sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
                 constraints.extend([sout == self.wingg.Sout,
                                     sout == self.winggust.Sout])
 
@@ -605,13 +589,8 @@ class Climb(Model):
             hdot >= dh/dt,
             t >= sum(dt),
             Pshaft >= T*V/etaprop,
+            E >= sum(Poper*dt)
             ]
-
-        if aircraft.Npod is not 0:
-            with SignomialsEnabled():
-                constraints.append(sum(E) >= sum(Poper*dt))
-        else:
-            constraints.append(E >= sum(Poper*dt))
 
         return self.drag, constraints
 
@@ -669,7 +648,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    Vehicle = Aircraft(Npod=3, sp=SP)
+    Vehicle = Aircraft(Npod=7, sp=SP)
     M = Mission(Vehicle, latitude=[10])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek", iteration_limit=100) if SP else
