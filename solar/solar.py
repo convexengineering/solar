@@ -6,6 +6,8 @@ from os import sep
 import pandas as pd
 import numpy as np
 import gassolar.environment
+from ad import adnumber as adn
+from ad.admath import exp
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
 from gpkit import Model, parse_variables, Vectorize
@@ -521,14 +523,15 @@ class Climb(Model):
         ft2m, alpha = 0.3048, 0.0065 # conversion, K/m
         h11k, T11k, p11k, rhosl = 11019, 216.483, 22532, 1.225 #m, K, Pa, kg/m^3
         T0, R, gms, n = 288.16, 287.04, 9.81, 5.2561 #K, m^2/K/s^2, m/s^2, -
-        hrange = np.linspace(0, c[self.h], self.N+1)[1:]*ft2m
+        hrange = [c[self.h]*ft2m*i/(self.N+1)
+                  for i in range(1, self.N+1)]
         rho = []
         for al in hrange:
             if al < h11k:
                 T = T0 - alpha*al
                 rho.append(rhosl*(T/T0)**(n-1))
             else:
-                p = p11k*np.exp((h11k - al)*gms/R/T11k)
+                p = p11k*exp((h11k - al)*gms/R/T11k)
                 rho.append(p/R/T11k)
         return rho
 
