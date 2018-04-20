@@ -270,15 +270,15 @@ class Aircraft(Model):
             self.battery = Battery()
             Volbatt = self.battery.Volbatt
             Wbatt = self.battery.W
+            self.components.append(self.battery)
             constraints.extend([
                 Wwing >= sum([c.W for c in [self.wing, self.battery,
                                             self.solarcells]]),
                 Wcent >= Wpay + Wavn + self.emp.W + self.motor.W,
                 Volbatt <= cmac**2*0.5*tau*b,
-                Wtotal/mfac >= (Wpay + Wavn + Wland + Wbatt + Wmotor
-                                + Wemp + Wwing + Wsolar)
+                Wtotal/mfac >= (Wpay + Wavn + Wland
+                                + sum([c.W for c in self.components]))
                 ])
-            self.components.append(self.battery)
 
 
         return constraints, self.components, materials
@@ -471,15 +471,18 @@ class FlightSegment(Model):
                                      self.aircraftPerf)
 
         if aircraft.Npod is not 0:
-            assert self.aircraft.sp
-            loadsp = self.aircraft.sp
-            z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
-            Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
-            ypod = Nwing/((Npod-1)/2 + 1)
-            y0len = ypod-1
-            sout = np.hstack([[z0]*y0len + [self.aircraft.battery.W[i]]
-                              for i in range(1, Npod, 2)])
-            sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
+            if aircraft.Npod is not 1:
+                assert self.aircraft.sp
+                loadsp = self.aircraft.sp
+                z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
+                Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
+                ypod = Nwing/((Npod-1)/2 + 1)
+                y0len = ypod-1
+                sout = np.hstack([[z0]*y0len + [self.aircraft.battery.W[i]]
+                                  for i in range(1, Npod, 2)])
+                sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
+            else:
+                loadsp = False
         else:
             loadsp = False
 
@@ -533,8 +536,9 @@ class FlightSegment(Model):
             ]
 
         if self.aircraft.Npod is not 0:
-            constraints.extend([sout == self.wingg.Sout,
-                                sout == self.winggust.Sout])
+            if self.aircraft.Npod is not 1:
+                constraints.extend([sout == self.wingg.Sout,
+                                    sout == self.winggust.Sout])
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
@@ -664,8 +668,8 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = False
-    Vehicle = Aircraft(Npod=0, sp=SP)
+    SP = True
+    Vehicle = Aircraft(Npod=3, sp=SP)
     M = Mission(Vehicle, latitude=[10])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek", iteration_limit=100) if SP else
