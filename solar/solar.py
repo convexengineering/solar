@@ -6,6 +6,8 @@ from os import sep
 import pandas as pd
 import numpy as np
 import gassolar.environment
+from ad import adnumber as adn
+from ad.admath import exp
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
 from gpkit import Model, parse_variables, Vectorize, Variable
@@ -24,6 +26,9 @@ from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
 from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
+from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
+from gpkitmodels.GP.aircraft.motor.motor import Motor
 
 path = dirname(gassolar.environment.__file__)
 
@@ -69,6 +74,7 @@ class AircraftDrag(Model):
     Ppay        100     [W]     payload power draw
     Poper               [W]     operating power
     mpower      1.05    [-]     power margin
+    T                   [lbf]     thrust
 
     LaTex Strings
     -------------
@@ -86,8 +92,10 @@ class AircraftDrag(Model):
         self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
         self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
+        self.motor = static.motor.flight_model(static.motor, state)
+        self.propeller = static.propeller.flight_model(static.propeller, state)
 
-        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom]
+        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom, self.motor, self.propeller]
 
         e = self.e = self.wing.e
         cdht = self.cdht = self.htail.Cd
@@ -99,8 +107,14 @@ class AircraftDrag(Model):
         Stb = self.Stb = static.emp.tailboom.S
         cdw = self.cdw = self.wing.Cd
         self.CL = self.wing.CL
-        etamotor = self.etamotor = static.motor.eta
-        Pmax = self.Pmax = static.motor.Pmax
+        Tprop = self.propeller.T
+        Qprop = self.propeller.Q
+        RPMprop = self.propeller.omega
+        Qmotor = self.motor.Q
+        RPMmotor = self.motor.omega
+        Pelec = self.motor.Pelec
+
+        
         self.wing.substitutions[e] = 0.95
         self.wing.substitutions[self.wing.CLstall] = 4
 
@@ -116,9 +130,12 @@ class AircraftDrag(Model):
             dvars.extend(cdfuse*Sfuse/Sw)
 
         constraints = [cda >= sum(dvars),
+                       Tprop==T,
+                       Qmotor == Qprop,
+                       RPMmotor == RPMprop,
                        CD/mfac >= cda + cdw,
-                       Poper/mpower >= Pavn + Ppay + Pshaft/etamotor,
-                       Poper <= Pmax]
+                       Poper/mpower >= Pavn + Ppay + Pelec,
+                       ]
 
         return self.flight_models, constraints
 
@@ -190,9 +207,10 @@ class Aircraft(Model):
             WingGP.skinModel = WingSecondStruct
             self.wing = WingGP(N=10)
         self.motor = Motor()
-
-        self.components = [self.solarcells, self.wing, self.emp, self.motor,
-                           self.battery]
+        Propeller.flight_model = ActuatorProp
+        self.propeller = Propeller()
+        self.components = [self.solarcells, self.wing, self.battery,
+                           self.emp, self.motor, self.propeller]
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -223,7 +241,6 @@ class Aircraft(Model):
         if not sp:
             self.emp.substitutions[Vh] = 0.45
             self.emp.substitutions[self.emp.htail.mh] = 0.1
-
 
         constraints = [Ssolar*mfsolar <= Sw,
                        Vh <= Sh*lh/Sw/cmac,
@@ -267,37 +284,6 @@ class Aircraft(Model):
 
         return constraints, self.components, materials
 
-class Motor(Model):
-    """ Motor Model
-
-    Variables
-    ---------
-    W                   [lbf]       motor weight
-    Pmax                [W]         max power
-    Bpm     1/0.0003    [W/kg]      power mass ratio
-    m                   [kg]        motor mass
-    eta                 [-]         motor system efficiency
-    etam    0.95        [-]         motor efficiency
-    etac    0.97        [-]         controller efficiency
-
-    Upper Unbounded
-    ---------------
-    W
-
-    Lower Unbounded
-    ---------------
-    Pmax, eta
-
-    LaTex Strings
-    -------------
-    Pmax        P_{\\mathrm{max}}
-    Bpm         B_{\\mathrm{PM}}
-    eta         \\eta
-
-    """
-    def setup(self):
-        exec parse_variables(Motor.__doc__)
-        return [Pmax <= Bpm*m, W >= m*g, eta <= etam*etac]
 
 class Battery(Model):
     """ Battery Model
@@ -537,31 +523,30 @@ class Climb(Model):
     t           500             [min]           time to climb
     hdotmin                     [ft/min]        minimum climb rate
     mu          1.42e-5         [N*s/m^2]       viscosity
-    etaprop     0.85            [-]             propeller efficiency
     dh          self.hstep      [ft]            change in altitude
 
     Variables of length [1,N]
     ---------------------
     dt                          [s]             time step
-    rho         self.density    [kg/m^3]        air density
     V                           [m/s]           vehicle speed
     hdot                        [ft/min]        climb rate
-    T                           [N]             thrust to climb
-
+    rho         self.density    [kg/m^3]        air density
     """
+    
     def density(self, c):
         " find air density "
         ft2m, alpha = 0.3048, 0.0065 # conversion, K/m
         h11k, T11k, p11k, rhosl = 11019, 216.483, 22532, 1.225 #m, K, Pa, kg/m^3
         T0, R, gms, n = 288.16, 287.04, 9.81, 5.2561 #K, m^2/K/s^2, m/s^2, -
-        hrange = np.linspace(0, c[self.h], self.N+1)[1:]*ft2m
+        hrange = [c[self.h]*ft2m*i/(self.N+1)
+                  for i in range(1, self.N+1)]
         rho = []
         for al in hrange:
             if al < h11k:
                 T = T0 - alpha*al
                 rho.append(rhosl*(T/T0)**(n-1))
             else:
-                p = p11k*np.exp((h11k - al)*gms/R/T11k)
+                p = p11k*exp((h11k - al)*gms/R/T11k)
                 rho.append(p/R/T11k)
         return [rho]
 
@@ -575,6 +560,7 @@ class Climb(Model):
 
         with Vectorize(self.N):
             self.drag = AircraftDrag(aircraft, self)
+        
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
         CL = self.CL = self.drag.CL
@@ -582,30 +568,23 @@ class Climb(Model):
         Pshaft = self.drag.Pshaft
         E = aircraft.battery.E
         Poper = self.drag.Poper
+        T = self.drag.T
+        self.rho = rho
 
         constraints = [
             Wtotal <= 0.5*rho*V**2*CL*S,
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
             hdot >= dh/dt,
             t >= sum(dt),
-            Pshaft >= T*V/etaprop,
-            E >= sum(Poper*dt)
+            E >= sum(Poper*dt),
             ]
 
         return self.drag, constraints
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
-
-    Variables
-    ---------
-    T                       [N]     thrust
-    etaprop         0.85    [-]     propeller efficiency
-
     """
     def setup(self, state, aircraft, perf):
-        exec parse_variables(SteadyLevelFlight.__doc__)
-
         Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.CL
         CD = self.CD = perf.CD
@@ -613,10 +592,11 @@ class SteadyLevelFlight(Model):
         S = self.S = aircraft.wing.planform.S
         rho = self.rho = state.rho
         V = self.V = state.V
-
+        T = perf.drag.T
+ 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
-                T >= 0.5*rho*V**2*CD*S,
-                Pshaft >= T*V/etaprop]
+                T >= 0.5*rho*V**2*CD*S
+                ]
 
 class Mission(Model):
     "define mission for aircraft"
@@ -649,7 +629,7 @@ def test():
 if __name__ == "__main__":
     SP = True
     Vehicle = Aircraft(Npod=5, sp=SP)
-    M = Mission(Vehicle, latitude=[32])
+    M = Mission(Vehicle, latitude=[10])
     M.cost = M[M.aircraft.Wtotal]
-    sol = (M.localsolve("mosek", iteration_limit=100) if SP else
-           M.solve("mosek"))
+    sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
+    
