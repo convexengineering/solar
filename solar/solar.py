@@ -167,7 +167,7 @@ class Aircraft(Model):
     fuseModel = None
     flight_model = AircraftPerf
 
-    def setup(self, Npod, sp=False):
+    def setup(self, Npod=0, sp=False):
         self.Npod = Npod
         self.sp = sp
         exec parse_variables(Aircraft.__doc__)
@@ -613,10 +613,16 @@ class Mission(Model):
 
 def test():
     " test model for continuous integration "
-    m = Mission()
+    v = Aircraft(sp=False)
+    m = Mission(v, latitude=[15])
     m.cost = m[m.solar.Wtotal]
     m.solve()
-    m = Mission(sp=True)
+    v = Aircraft(sp=True)
+    m = Mission(v, latitude=[15])
+    m.cost = m[m.solar.Wtotal]
+    m.localsolve()
+    v = Aircraft(Npod=3, sp=True)
+    m = Mission(v, latitude=[15])
     m.cost = m[m.solar.Wtotal]
     m.localsolve()
 

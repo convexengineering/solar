@@ -31,14 +31,15 @@ def plot_pods(df):
     del Wtot[0]
     fig, ax = plt.subplots()
     ax.plot(N, Wtot)
-    ax.set_xlabel("Number of pods")
+    ax.set_xlabel("Number of battery pods")
     ax.set_ylabel("Max Take off Weight [lbf]")
     ax.grid()
     ax.set_ylim([0, max(Wtot)*1.1])
     ax.set_xlim([1, 11])
     ax.set_xticks(N)
-    N[-1] = 0
-    ax.set_xticklabels(["%d" % n for n in N])
+    del N[-1]
+    labels = ["%d" % n for n in N] + ["battery\nin wing"]
+    ax.set_xticklabels(labels)
     fig.savefig("npod_trade.pdf", bbox_inches="tight")
     return fig, ax
 
