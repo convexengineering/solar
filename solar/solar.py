@@ -6,12 +6,10 @@ from os import sep
 import pandas as pd
 import numpy as np
 import gassolar.environment
-from ad import adnumber as adn
 from ad.admath import exp
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
 from gpkit import Model, parse_variables, Vectorize, Variable
-from gpkit import SignomialsEnabled
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
@@ -24,11 +22,10 @@ from gpkitmodels.GP.aircraft.tail.tail_boom import TailBoom
 from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
 from gpkitmodels.GP.aircraft.fuselage.elliptical_fuselage import Fuselage
-from gpkitmodels import g
-from gpfit.fit_constraintset import FitCS as FCS
-from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
 from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
+from gpkitmodels import g
+from gpfit.fit_constraintset import FitCS as FCS
 
 path = dirname(gassolar.environment.__file__)
 
@@ -95,7 +92,8 @@ class AircraftDrag(Model):
         self.motor = static.motor.flight_model(static.motor, state)
         self.propeller = static.propeller.flight_model(static.propeller, state)
 
-        self.flight_models = [self.wing, self.htail, self.vtail, self.tailboom, self.motor, self.propeller]
+        self.flight_models = [self.wing, self.htail, self.vtail,
+                              self.tailboom, self.motor, self.propeller]
 
         e = self.e = self.wing.e
         cdht = self.cdht = self.htail.Cd
@@ -114,7 +112,7 @@ class AircraftDrag(Model):
         RPMmotor = self.motor.omega
         Pelec = self.motor.Pelec
 
-        
+
         self.wing.substitutions[e] = 0.95
         self.wing.substitutions[self.wing.CLstall] = 4
 
@@ -128,14 +126,15 @@ class AircraftDrag(Model):
             cdfuse = self.fuse.Cd
             Sfuse = static.fuselage.S
             dvars.extend(cdfuse*Sfuse/Sw)
+            self.fuse.substitutions[self.fuse.mfac] = 1.1
 
         constraints = [cda >= sum(dvars),
-                       Tprop==T,
+                       Tprop == T,
                        Qmotor == Qprop,
                        RPMmotor == RPMprop,
                        CD/mfac >= cda + cdw,
                        Poper/mpower >= Pavn + Ppay + Pelec,
-                       ]
+                      ]
 
         return self.flight_models, constraints
 
@@ -229,9 +228,6 @@ class Aircraft(Model):
         Volbatt = self.battery.Volbatt
         vttau = self.emp.vtail.planform.tau
         httau = self.emp.htail.planform.tau
-        Wmotor = self.motor.W
-        Wsolar = self.motor.W
-        Wemp = self.emp.W
 
         self.emp.substitutions[Vv] = 0.02
         self.emp.substitutions[self.emp.htail.skin.rhoA] = 0.4
@@ -261,6 +257,7 @@ class Aircraft(Model):
             Volfuse = self.Volfuse = self.fuselage.Vol[:, 0]
             Wbatt = self.battery.W
             Wfuse = sum(self.fuselage.W)
+            self.fuselage.substitutions[self.fuselage.nply] = 5
 
             constraints.extend([
                 Volbatt <= Volfuse,
@@ -532,7 +529,7 @@ class Climb(Model):
     hdot                        [ft/min]        climb rate
     rho         self.density    [kg/m^3]        air density
     """
-    
+
     def density(self, c):
         " find air density "
         ft2m, alpha = 0.3048, 0.0065 # conversion, K/m
@@ -560,12 +557,11 @@ class Climb(Model):
 
         with Vectorize(self.N):
             self.drag = AircraftDrag(aircraft, self)
-        
+
         Wtotal = self.Wtotal = aircraft.Wtotal
         CD = self.CD = self.drag.CD
         CL = self.CL = self.drag.CL
         S = self.S = aircraft.wing.planform.S
-        Pshaft = self.drag.Pshaft
         E = aircraft.battery.E
         Poper = self.drag.Poper
         T = self.drag.T
@@ -588,15 +584,13 @@ class SteadyLevelFlight(Model):
         Wtotal = self.Wtotal = aircraft.Wtotal
         CL = self.CL = perf.CL
         CD = self.CD = perf.CD
-        Pshaft = self.Pshaft = perf.Pshaft
         S = self.S = aircraft.wing.planform.S
         rho = self.rho = state.rho
         V = self.V = state.V
         T = perf.drag.T
- 
+
         return [Wtotal <= (0.5*rho*V**2*CL*S),
-                T >= 0.5*rho*V**2*CD*S
-                ]
+                T >= 0.5*rho*V**2*CD*S]
 
 class Mission(Model):
     "define mission for aircraft"
@@ -628,8 +622,8 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    Vehicle = Aircraft(Npod=5, sp=SP)
-    M = Mission(Vehicle, latitude=[10])
+    Vehicle = Aircraft(Npod=3, sp=SP)
+    M = Mission(Vehicle, latitude=[15])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
-    
+
