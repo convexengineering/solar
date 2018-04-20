@@ -518,7 +518,7 @@ class FlightSegment(Model):
                 Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
                 ypod = Nwing/((Npod-1)/2 + 1)
                 y0len = ypod-1
-                weight = self.aircraft.battery.W/Npod*self.wingg.N
+                weight = self.aircraft.battery.W/Npod*self.wingg.Nsafety
                 sout = np.hstack([[z0]*y0len + [weight]]*(Npod/2))
                 sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
                 constraints.extend([sout == self.wingg.Sout,
@@ -648,8 +648,8 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    Vehicle = Aircraft(Npod=7, sp=SP)
-    M = Mission(Vehicle, latitude=[10])
+    Vehicle = Aircraft(Npod=5, sp=SP)
+    M = Mission(Vehicle, latitude=[32])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek", iteration_limit=100) if SP else
            M.solve("mosek"))
