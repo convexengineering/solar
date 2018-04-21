@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import random
 from gpkit.repr_conventions import unitstr
-from solar import Mission
+from solar import Mission, Aircraft
 
 #pylint: disable=invalid-name, anomalous-backslash-in-string
 
@@ -102,7 +102,8 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    M = Mission(latitude=[20])
+    V = Aircraft(Npod=3, sp=True)
+    M = Mission(latitude=[15])
     M.cost = M[M.solar.Wtotal]
     sol = M.solve("mosek")
 
