@@ -627,8 +627,8 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = True
-    Vehicle = Aircraft(Npod=3, sp=SP)
+    SP = False
+    Vehicle = Aircraft(Npod=0, sp=SP)
     M = Mission(Vehicle, latitude=[15])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek") if SP else M.solve("mosek"))

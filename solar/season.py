@@ -21,10 +21,10 @@ def season(lats):
                 break
             V = Aircraft(sp=False)
             M = Mission(V, latitude=range(1, l+1, 1), day=d)
-            M.cost = M[M.solar.Wtotal]
+            M.cost = M[M.aircraft.Wtotal]
             try:
                 sol = M.solve("mosek")
-                mtow = sol(M.solar.Wtotal).magnitude
+                mtow = sol(M.aircraft.Wtotal).magnitude
                 mtows.append(mtow)
             except RuntimeWarning:
                 mtows.append(np.nan)
