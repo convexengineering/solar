@@ -615,15 +615,15 @@ def test():
     " test model for continuous integration "
     v = Aircraft(sp=False)
     m = Mission(v, latitude=[15])
-    m.cost = m[m.solar.Wtotal]
+    m.cost = m[m.aircraft.Wtotal]
     m.solve()
     v = Aircraft(sp=True)
     m = Mission(v, latitude=[15])
-    m.cost = m[m.solar.Wtotal]
+    m.cost = m[m.aircraft.Wtotal]
     m.localsolve()
     v = Aircraft(Npod=3, sp=True)
     m = Mission(v, latitude=[15])
-    m.cost = m[m.solar.Wtotal]
+    m.cost = m[m.aircraft.Wtotal]
     m.localsolve()
 
 if __name__ == "__main__":
