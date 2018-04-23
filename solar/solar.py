@@ -22,7 +22,9 @@ from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp, MultiElementProp
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
+from gpkitmodels.SP.aircraft.prop.propeller import MultiElementProp
+
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 
 path = dirname(gassolar.environment.__file__)
@@ -562,13 +564,10 @@ class SteadyLevelFlight(Model):
         S = self.S = aircraft.wing.planform.S
         rho = self.rho = state.rho
         V = self.V = state.V
-        #self.propeller = aircraft.propeller.flight_model(aircraft.propeller, state)
-        #self.propeller.substitutions['omega'] = 1000
-
+        T = perf.drag.T
 
         return [Wtotal <= (0.5*rho*V**2*CL*S),
                 T >= 0.5*rho*V**2*CD*S,
-                perf.drag.T == T,
                 ]
 class Mission(Model):
     "define mission for aircraft"
@@ -604,4 +603,4 @@ if __name__ == "__main__":
     M.cost = M[M.solar.Wtotal]
     sol = M.localsolve("mosek") if SP else M.solve("mosek")
     #sol = M.debug()
-    print sol.table()
+    #print sol.table()
