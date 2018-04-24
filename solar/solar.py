@@ -107,6 +107,7 @@ class AircraftDrag(Model):
         Stb = self.Stb = static.emp.tailboom.S
         cdw = self.cdw = self.wing.Cd
         self.CL = self.wing.CL
+        Nprop = static.Nprop
 
         
         self.wing.substitutions[e] = 0.95
@@ -121,11 +122,11 @@ class AircraftDrag(Model):
             dvars.append(cdfuse*Sfuse/Sw)
 
         constraints = [cda >= sum(dvars),
-                       self.propeller.T==T,
+                       self.propeller.T==T/Nprop,
                        self.motor.Q == self.propeller.Q,
                        self.motor.omega == self.propeller.omega,
                        CD/mfac >= cda + cdw,
-                       Poper/mpower >= Pavn + Ppay + self.motor.Pelec,
+                       Poper/mpower >= Pavn + Ppay + (self.motor.Pelec*Nprop),
                        ]
 
         return self.flight_models, constraints
@@ -143,6 +144,7 @@ class Aircraft(Model):
     mfac        1.05    [-]     total weight margin
     fland       0.02    [-]     fractional landing gear weight
     Wland               [lbf]   landing gear weight
+    Nprop       3       [-]     Number of propulsors
 
     Upper Unbounded
     ---------------
@@ -265,7 +267,8 @@ class Aircraft(Model):
                 ])
 
         constraints.extend([Wtotal/mfac >= (
-            Wpay + Wavn + Wland + sum([c.W for c in self.components]))])
+            Wpay + Wavn + Wland + sum([c.W for c in self.components])
+            + (Nprop-1.)*(self.motor.W + self.propeller.W))])
 
         return constraints, self.components, materials
 
