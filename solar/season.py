@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from solar import Mission
+from solar import Mission, Aircraft
 
 #pylint: disable=invalid-name
 
@@ -19,11 +19,12 @@ def season(lats):
             if failed:
                 mtows = mtows + [np.nan]*(4-len(mtows))
                 break
-            M = Mission(latitude=range(1, l+1, 1), day=d)
-            M.cost = M[M.solar.Wtotal]
+            V = Aircraft(sp=False)
+            M = Mission(V, latitude=range(1, l+1, 1), day=d)
+            M.cost = M[M.aircraft.Wtotal]
             try:
                 sol = M.solve("mosek")
-                mtow = sol(M.solar.Wtotal).magnitude
+                mtow = sol(M.aircraft.Wtotal).magnitude
                 mtows.append(mtow)
             except RuntimeWarning:
                 mtows.append(np.nan)
