@@ -158,7 +158,7 @@ class Aircraft(Model):
     mfac        1.05    [-]     total weight margin
     fland       0.02    [-]     fractional landing gear weight
     Wland               [lbf]   landing gear weight
-    Nprop       1       [-]     Number of propulsors
+    Nprop       4       [-]     Number of propulsors
     minvttau    0.09    [-]     minimum vertical tail tau ratio
     minhttau    0.06    [-]     minimum horizontal tail tau ratio
     maxtau      0.144   [-]     maximum wing tau ratio
@@ -658,4 +658,4 @@ if __name__ == "__main__":
     M = Mission(Vehicle, latitude=[15])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
-    print sol.table()
+    
