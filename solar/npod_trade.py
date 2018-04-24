@@ -5,14 +5,13 @@ import pandas as pd
 import numpy as np
 import sys
 
-def pods():
+def pods(N=[1, 3, 5, 7, 9, 0]):
     "trade number of pods"
     SP = True
     data = {}
-    N = [1, 3, 5, 7, 9, 0]
     for i in N:
         Vehicle = Aircraft(Npod=i, sp=SP)
-        M = Mission(Vehicle, latitude=[15])
+        M = Mission(Vehicle, latitude=[20])
         M.cost = M[M.aircraft.Wtotal]
         sol = M.localsolve("mosek")
         data[i] = sol("Wtotal").magnitude
@@ -45,7 +44,7 @@ def plot_pods(df):
 
 def test():
     " for unit testing "
-    pods()
+    pods(N=[1,3,0])
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
