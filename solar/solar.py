@@ -158,7 +158,7 @@ class Aircraft(Model):
     mfac        1.05    [-]     total weight margin
     fland       0.02    [-]     fractional landing gear weight
     Wland               [lbf]   landing gear weight
-    Nprop       4       [-]     Number of propulsors
+    Nprop       1       [-]     Number of propulsors
     minvttau    0.09    [-]     minimum vertical tail tau ratio
     minhttau    0.06    [-]     minimum horizontal tail tau ratio
     maxtau      0.144   [-]     maximum wing tau ratio
@@ -286,7 +286,7 @@ class Aircraft(Model):
             constraints.extend([
                 Volbatt <= Volfuse,
                 Wwing >= self.wing.W + self.solarcells.W,
-                Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W
+                Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W*Nprop
                           + self.fuselage.W[0] + Wbatt/self.Npod),
                 Wtotal/mfac >= (Wpay + Wavn + Wland + Wfuse +
                                 sum([c.W for c in self.components]) +
@@ -298,7 +298,7 @@ class Aircraft(Model):
             constraints.extend([
                 Wwing >= sum([c.W for c in [self.wing, self.battery,
                                             self.solarcells]]),
-                Wcent >= Wpay + Wavn + self.emp.W + self.motor.W,
+                Wcent >= Wpay + Wavn + self.emp.W + self.motor.W*Nprop,
                 Volbatt <= cmac**2*0.5*tau*b,
                 Wtotal/mfac >= (Wpay + Wavn + Wland
                                 + sum([c.W for c in self.components])
