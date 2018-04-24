@@ -158,7 +158,7 @@ class Aircraft(Model):
     mfac        1.05    [-]     total weight margin
     fland       0.02    [-]     fractional landing gear weight
     Wland               [lbf]   landing gear weight
-    Nprop       3       [-]     Number of propulsors
+    Nprop       4       [-]     Number of propulsors
     minvttau    0.09    [-]     minimum vertical tail tau ratio
     minhttau    0.06    [-]     minimum horizontal tail tau ratio
     maxtau      0.144   [-]     maximum wing tau ratio
@@ -232,7 +232,8 @@ class Aircraft(Model):
         Propeller.flight_model = ActuatorProp
         self.propeller = Propeller()
         self.components = [self.solarcells, self.wing, self.battery,
-                           self.emp, self.motor, self.propeller]
+                           self.emp]
+        self.propulsor = [self.motor, self.propeller]
 
         Sw = self.Sw = self.wing.planform.S
         cmac = self.cmac = self.wing.planform.cmac
@@ -288,9 +289,10 @@ class Aircraft(Model):
                 Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W
                           + self.fuselage.W[0] + Wbatt/self.Npod),
                 Wtotal/mfac >= (Wpay + Wavn + Wland + Wfuse +
-                                sum([c.W for c in self.components])
-                                + (Nprop)*(self.motor.W + self.propeller.W))
+                                sum([c.W for c in self.components]) +
+                                (Nprop)*sum([c.W for c in self.propulsor]))
                 ])
+
             self.components.append(self.fuselage)
         else:
             constraints.extend([
@@ -300,10 +302,10 @@ class Aircraft(Model):
                 Volbatt <= cmac**2*0.5*tau*b,
                 Wtotal/mfac >= (Wpay + Wavn + Wland
                                 + sum([c.W for c in self.components])
-                                + (Nprop)*(self.motor.W + self.propeller.W))
+                                + Nprop*sum([c.W for c in self.propulsor]))
                 ])
 
-        return constraints, self.components, materials
+        return constraints, self.components, materials, self.propulsor
 
 
 class Battery(Model):
@@ -596,10 +598,9 @@ class Climb(Model):
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
             hdot >= dh/dt,
             t >= sum(hstack(dt)),
-            E >= sum(hstack(Poper*dt)),
-            ]
+            E >= sum(hstack(Poper*dt))]
 
-        return self.drag, constraints,# self.propeller
+        return self.drag, constraints
 
 class SteadyLevelFlight(Model):
     """ steady level flight model
