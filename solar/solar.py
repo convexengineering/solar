@@ -22,7 +22,8 @@ from gpkitmodels.SP.aircraft.tail.tail_boom_flex import TailBoomFlexibility
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
 from gpkitmodels.GP.materials import cfrpud, cfrpfabric, foamhd
-from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp, MultiElementProp
+from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
+from gpkitmodels.SP.aircraft.prop.propeller import BladeElementProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 
 path = dirname(gassolar.environment.__file__)
@@ -90,7 +91,7 @@ class AircraftDrag(Model):
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
         if onDesign:
-            static.propeller.flight_model = MultiElementProp
+            static.propeller.flight_model = BladeElementProp
 
         self.propeller = static.propeller.flight_model(static.propeller, state)
 
