@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import random
 from gpkit.repr_conventions import unitstr
-from solar import Mission
+from solar import Mission, Aircraft
 
 #pylint: disable=invalid-name, anomalous-backslash-in-string
 
@@ -25,8 +25,13 @@ def get_highestsens(model, res, varnames=None, N=10):
             sens[vk] = sen
     else:
         for s in res["sensitivities"]["constants"]:
-            sens[model[s].key] = sum(
-                np.hstack([res["sensitivities"]["constants"][s]]))
+            val = res["sensitivities"]["constants"][s]
+            if hasattr(val, "shape"):
+                if len(val.shape) == 1:
+                    val = sum(val)
+                if len(val.shape) == 2:
+                    val = sum(np.hstack(val))
+            sens[model[s].key] = val
 
     labels = []
     i = 0
@@ -86,13 +91,14 @@ def plot_chart(sensdict):
 
 def test():
     " test for integrated testing "
-    model = Mission(latitude=[20])
-    model.cost = model[model.solar.Wtotal]
-    result = model.solve("mosek")
+    v = Aircraft(Npod=0, sp=True)
+    model = Mission(v, latitude=[20])
+    model.cost = model[model.aircraft.Wtotal]
+    result = model.localsolve("mosek")
     _ = get_highestsens(model, result)
 
-    vn = {model.solar.Wpay: "$W_{\\mathrm{pay}}$",
-          model.solar.battery.etacharge: "$\\eta_{\\mathrm{charge}}$"}
+    vn = {model.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
+          model.aircraft.battery.etacharge: "$\\eta_{\\mathrm{charge}}$"}
     _ = get_highestsens(model, result, vn)
 
 if __name__ == "__main__":
@@ -102,15 +108,16 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    M = Mission(latitude=[20])
-    M.cost = M[M.solar.Wtotal]
-    sol = M.solve("mosek")
+    V = Aircraft(Npod=3, sp=True)
+    M = Mission(V, latitude=[15])
+    M.cost = M[M.aircraft.Wtotal]
+    sol = M.localsolve("mosek")
 
-    vns = {M.solar.Wpay: "$W_{\\mathrm{pay}}$",
-           M.solar.battery.etacharge: "$\\eta_{\\mathrm{charge}}$",
-           M.solar.battery.etadischarge: "$\\eta_{\\mathrm{discharge}}$",
-           M.solar.battery.hbatt: "$h_{\\mathrm{batt}}$",
-           M.solar.solarcells.etasolar: "$\\eta_{\\mathrm{solar}}$",
+    vns = {M.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
+           M.aircraft.battery.etacharge: "$\\eta_{\\mathrm{charge}}$",
+           M.aircraft.battery.etadischarge: "$\\eta_{\\mathrm{discharge}}$",
+           M.aircraft.battery.hbatt: "$h_{\\mathrm{batt}}$",
+           M.aircraft.solarcells.etasolar: "$\\eta_{\\mathrm{solar}}$",
            "Nmax": "$N_{\\mathrm{max}}$",
            "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
 
