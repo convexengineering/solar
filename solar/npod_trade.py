@@ -44,7 +44,7 @@ def plot_pods(df):
 
 def test():
     " for unit testing "
-    pods(N=[1,3,0])
+    pods(N=[0])
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

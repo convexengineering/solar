@@ -91,7 +91,7 @@ def plot_chart(sensdict):
 
 def test():
     " test for integrated testing "
-    v = Aircraft(Npod=3, sp=True)
+    v = Aircraft(Npod=0, sp=True)
     model = Mission(v, latitude=[20])
     model.cost = model[model.aircraft.Wtotal]
     result = model.localsolve("mosek")
