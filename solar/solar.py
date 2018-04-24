@@ -165,7 +165,7 @@ class Aircraft(Model):
 
     Upper Unbounded
     ---------------
-    Wwing, Wcent, wing.mw (if sp), propeller.c, k
+    Wwing, Wcent, wing.mw (if sp), propeller.c, fuselage.k
 
     Lower Unbounded
     ---------------
