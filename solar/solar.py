@@ -3,6 +3,7 @@
 #pylint: disable=redefined-variable-type, too-many-statements, not-callable
 from os.path import abspath, dirname
 from os import sep
+from numpy import hstack
 import pandas as pd
 import numpy as np
 import gassolar.environment
@@ -524,7 +525,7 @@ class Climb(Model):
 
     Variables of length [1,N]
     ---------------------
-    dt                          [s]             time step
+    dt                          [min]           time step
     V                           [m/s]           vehicle speed
     hdot                        [ft/min]        climb rate
     rho         self.density    [kg/m^3]        air density
@@ -571,8 +572,8 @@ class Climb(Model):
             Wtotal <= 0.5*rho*V**2*CL*S,
             T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
             hdot >= dh/dt,
-            t >= sum(dt),
-            E >= sum(Poper*dt),
+            t >= sum(hstack(dt)),
+            E >= sum(hstack(Poper*dt)),
             ]
 
         return self.drag, constraints
@@ -627,9 +628,9 @@ def test():
     m.localsolve()
 
 if __name__ == "__main__":
-    SP = False
-    Vehicle = Aircraft(Npod=0, sp=SP)
-    M = Mission(Vehicle, latitude=[15])
+    SP = True
+    Vehicle = Aircraft(Npod=3, sp=SP)
+    M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
 
