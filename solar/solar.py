@@ -92,8 +92,9 @@ class AircraftDrag(Model):
         self.tailboom   = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
-        if onDesign:
-            static.propeller.flight_model = BladeElementProp
+        if static.sp:
+            if onDesign:
+                static.propeller.flight_model = BladeElementProp
 
         self.propeller = static.propeller.flight_model(static.propeller, state)
 
