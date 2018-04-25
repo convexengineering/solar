@@ -52,7 +52,7 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    GENERATE = False
+    GENERATE = True
 
     if GENERATE:
         DF = pods()

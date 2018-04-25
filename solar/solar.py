@@ -200,7 +200,7 @@ class Aircraft(Model):
             WingSP.sparModel = BoxSpar
             WingSP.fillModel = None
             WingSP.skinModel = WingSecondStruct
-            self.wing = WingSP(N=10)
+            self.wing = WingSP(N=20)
         else:
             WingGP.sparModel = BoxSpar
             WingGP.fillModel = None
@@ -499,12 +499,13 @@ class FlightSegment(Model):
         if self.aircraft.Npod is not 0:
             if self.aircraft.Npod is not 1:
                 z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
-                Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
-                ypod = Nwing/((Npod-1)/2 + 1)
-                y0len = ypod-1
-                weight = self.aircraft.battery.W/Npod*self.wingg.Nsafety
-                sout = np.hstack([[z0]*y0len + [weight]]*(Npod/2))
-                sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
+                # Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
+                # ypod = Nwing/((Npod-1)/2 + 1)
+                # y0len = ypod-1
+                # weight = self.aircraft.battery.W/Npod*self.wingg.Nsafety
+                # sout = np.hstack([[z0]*y0len + [weight]]*(Npod/2))
+                # sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
+                sout = [z0]*8 + [self.aircraft.battery.W/self.aircraft.Npod*self.wingg.Nsafety*0.85] + [z0]*10
                 constraints.extend([sout == self.wingg.Sout,
                                     sout == self.winggust.Sout])
 
@@ -629,8 +630,24 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    Vehicle = Aircraft(Npod=5, sp=SP)
-    M = Mission(Vehicle, latitude=[15])
+    Vehicle = Aircraft(Npod=3, sp=SP)
+    M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
 
+    import matplotlib.pyplot as plt
+    S = sol(M.mission[1].winggust.S)
+    m = sol(M.mission[1].winggust.M)
+    fig, ax = plt.subplots(2)
+    ax[0].plot(range(20), S)
+    ax[1].plot(range(20), m)
+    ax[0].grid(); ax[1].grid()
+    fig.savefig("shearandmoment.pdf")
+
+    S = sol(M.mission[1].wingg.S)
+    m = sol(M.mission[1].wingg.M)
+    fig, ax = plt.subplots(2)
+    ax[0].plot(range(20), S)
+    ax[1].plot(range(20), m)
+    ax[0].grid(); ax[1].grid()
+    fig.savefig("shearandmoment2.pdf")
