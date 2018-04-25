@@ -86,10 +86,10 @@ class AircraftDrag(Model):
 
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
 
-        self.wing       = static.wing.flight_model(static.wing, state, fitdata=fd)
-        self.htail      = static.emp.htail.flight_model(static.emp.htail, state)
-        self.vtail      = static.emp.vtail.flight_model(static.emp.vtail, state)
-        self.tailboom   = static.emp.tailboom.flight_model(static.emp.tailboom,
+        self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
+        self.htail = static.emp.htail.flight_model(static.emp.htail, state)
+        self.vtail = static.emp.vtail.flight_model(static.emp.vtail, state)
+        self.tailboom = static.emp.tailboom.flight_model(static.emp.tailboom,
                                                          state)
         self.motor = static.motor.flight_model(static.motor, state)
         if static.sp:
