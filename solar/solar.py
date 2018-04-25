@@ -162,10 +162,12 @@ class Aircraft(Model):
     minvttau    0.09    [-]     minimum vertical tail tau ratio
     minhttau    0.06    [-]     minimum horizontal tail tau ratio
     maxtau      0.144   [-]     maximum wing tau ratio
+    
+    SKIP VERIFICATION 
 
     Upper Unbounded
     ---------------
-    Wwing, Wcent, wing.mw (if sp), propeller.c, fuselage.k
+    Wwing, Wcent, wing.mw (if sp), propeller.c
 
     Lower Unbounded
     ---------------
@@ -658,4 +660,3 @@ if __name__ == "__main__":
     M = Mission(Vehicle, latitude=[15])
     M.cost = M[M.aircraft.Wtotal]
     sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
-    
