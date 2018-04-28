@@ -1,4 +1,3 @@
-solar/solar.py
 solar/sens_chart.py
 solar/season.py
 solar/npod_trade.py
