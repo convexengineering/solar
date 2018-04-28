@@ -5,12 +5,11 @@ from os.path import abspath, dirname
 from os import sep
 from numpy import hstack
 import pandas as pd
-import numpy as np
 import gassolar.environment
 from ad.admath import exp
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, parse_variables, Vectorize, Variable
+from gpkit import Model, parse_variables, Vectorize, SignomialsEnabled
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
@@ -27,6 +26,7 @@ from gpkitmodels.GP.aircraft.prop.propeller import Propeller, ActuatorProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
+from relaxed_constants import relaxed_constants, post_process
 
 path = dirname(gassolar.environment.__file__)
 
@@ -496,18 +496,38 @@ class FlightSegment(Model):
             self.vtailg.W == qne*Sv*CLvmax,
             ]
 
-        if self.aircraft.Npod is not 0:
-            if self.aircraft.Npod is not 1:
-                z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
-                # Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
-                # ypod = Nwing/((Npod-1)/2 + 1)
-                # y0len = ypod-1
-                # weight = self.aircraft.battery.W/Npod*self.wingg.Nsafety
-                # sout = np.hstack([[z0]*y0len + [weight]]*(Npod/2))
-                # sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
-                sout = [z0]*8 + [self.aircraft.battery.W/self.aircraft.Npod*self.wingg.Nsafety*0.85] + [z0]*10
-                constraints.extend([sout == self.wingg.Sout,
-                                    sout == self.winggust.Sout])
+        if self.aircraft.Npod is not 0 and self.aircraft.Npod is not 1:
+            Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
+            ypod = Nwing/((Npod-1)/2 + 1)
+            ypods = [ypod*n for n in range(1, (Npod-1)/2+1)]
+            Sgust, Mgust = self.winggust.S, self.winggust.M
+            qgust, Sg, Mg = self.winggust.q, self.wingg.S, self.wingg.M
+            qg = self.wingg.q
+            deta = self.aircraft.wing.planform.deta
+            b = self.aircraft.wing.planform.b
+            weight = self.aircraft.battery.W/Npod*self.wingg.N
+            for i in range(Nwing-1):
+                if i in ypods:
+                    with SignomialsEnabled():
+                        constraints.extend([
+                            Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(b/2)
+                                         * (qgust[i] + qgust[i+1]) - weight),
+                            Sg[i] >= (Sg[i+1] + 0.5*deta[i]*(b/2)
+                                      * (qg[i] + qg[i+1]) - weight),
+                            Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(b/2)
+                                         * (Sgust[i] + Sgust[i+1])),
+                            Mg[i] >= (Mg[i+1] + 0.5*deta[i]*(b/2)
+                                      * (Sg[i] + Sg[i+1]))
+                            ])
+                else:
+                    constraints.extend([
+                        Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(b/2)
+                                     * (qgust[i] + qgust[i+1])),
+                        Sg[i] >= Sg[i+1] + 0.5*deta[i]*(b/2)*(qg[i] + qg[i+1]),
+                        Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(b/2)
+                                     * (Sgust[i] + Sgust[i+1])),
+                        Mg[i] >= Mg[i+1] + 0.5*deta[i]*(b/2)*(Sg[i] + Sg[i+1])
+                        ])
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
@@ -616,38 +636,31 @@ class Mission(Model):
 def test():
     " test model for continuous integration "
     v = Aircraft(sp=False)
-    m = Mission(v, latitude=[15])
+    m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
     m.solve()
     v = Aircraft(sp=True)
-    m = Mission(v, latitude=[15])
+    m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
     m.localsolve()
-    v = Aircraft(Npod=5, sp=True)
-    m = Mission(v, latitude=[15])
+    v = Aircraft(Npod=3, sp=True)
+    m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
-    m.localsolve()
+    f = relaxed_constants(M)
+    s = f.localsolve("mosek")
+    post_process(s)
 
 if __name__ == "__main__":
     SP = True
     Vehicle = Aircraft(Npod=3, sp=SP)
     M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
-    sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
-
-    import matplotlib.pyplot as plt
-    S = sol(M.mission[1].winggust.S)
-    m = sol(M.mission[1].winggust.M)
-    fig, ax = plt.subplots(2)
-    ax[0].plot(range(20), S)
-    ax[1].plot(range(20), m)
-    ax[0].grid(); ax[1].grid()
-    fig.savefig("shearandmoment.pdf")
-
-    S = sol(M.mission[1].wingg.S)
-    m = sol(M.mission[1].wingg.M)
-    fig, ax = plt.subplots(2)
-    ax[0].plot(range(20), S)
-    ax[1].plot(range(20), m)
-    ax[0].grid(); ax[1].grid()
-    fig.savefig("shearandmoment2.pdf")
+    try:
+        sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
+    except RuntimeWarning:
+        V2 = Aircraft(Npod=3, sp=SP)
+        M2 = Mission(V2, latitude=[20])
+        M2.cost = M2[M2.aircraft.Wtotal]
+        feas = relaxed_constants(M2)
+        sol = feas.localsolve("mosek")
+        vks = post_process(sol)
