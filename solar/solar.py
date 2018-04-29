@@ -13,7 +13,8 @@ from gpkit import Model, parse_variables, Vectorize, SignomialsEnabled
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
-from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
+from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar as BoxSparGP
+from gpkitmodels.SP.aircraft.wing.boxspar import BoxSpar as BoxSparSP
 from gpkitmodels.GP.aircraft.wing.wing_skin import WingSecondStruct
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
@@ -122,7 +123,7 @@ class AircraftDrag(Model):
 
         self.wing.substitutions[e] = 0.95
         self.wing.substitutions[self.wing.CLstall] = 4
-        
+
         self.wing.substitutions[e] = 0.95
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
 
@@ -163,8 +164,8 @@ class Aircraft(Model):
     minvttau    0.09    [-]     minimum vertical tail tau ratio
     minhttau    0.06    [-]     minimum horizontal tail tau ratio
     maxtau      0.144   [-]     maximum wing tau ratio
-    
-    SKIP VERIFICATION 
+
+    SKIP VERIFICATION
 
     Upper Unbounded
     ---------------
@@ -210,27 +211,27 @@ class Aircraft(Model):
         foamhd.substitutions.update({foamhd.rho: 0.03})
         materials = [cfrpud, cfrpfabric, foamhd]
 
-        HorizontalTail.sparModel = BoxSpar
+        HorizontalTail.sparModel = BoxSparGP
         HorizontalTail.fillModel = None
         HorizontalTail.skinModel = WingSecondStruct
-        VerticalTail.sparModel = BoxSpar
+        VerticalTail.sparModel = BoxSparGP
         VerticalTail.fillModel = None
         VerticalTail.skinModel = WingSecondStruct
-        TailBoom.__bases__ = (BoxSpar,)
+        TailBoom.__bases__ = (BoxSparGP,)
         TailBoom.secondaryWeight = True
         self.emp = Empennage(N=5)
         self.solarcells = SolarCells()
         self.battery = Battery()
         if sp:
-            WingSP.sparModel = BoxSpar
+            WingSP.sparModel = BoxSparSP
             WingSP.fillModel = None
             WingSP.skinModel = WingSecondStruct
             self.wing = WingSP(N=20)
         else:
-            WingGP.sparModel = BoxSpar
+            WingGP.sparModel = BoxSparGP
             WingGP.fillModel = None
             WingGP.skinModel = WingSecondStruct
-            self.wing = WingGP(N=10)
+            self.wing = WingGP(N=20)
         self.motor = Motor()
         Propeller.flight_model = ActuatorProp
         self.propeller = Propeller()
@@ -462,23 +463,20 @@ class FlightSegment(Model):
 
         self.aircraft = aircraft
         self.fs = FlightState(latitude=latitude, day=day)
-        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, True)
+        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, False)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
-        if aircraft.Npod is not 0:
-            if aircraft.Npod is not 1:
-                assert self.aircraft.sp
-                loadsp = self.aircraft.sp
-            else:
-                loadsp = False
+        if aircraft.Npod is not 0 and aircraft.Npod is not 1:
+            assert self.aircraft.sp
+            loadsp = self.aircraft.sp
         else:
             loadsp = False
 
         self.wingg = self.aircraft.wing.spar.loading(
-            self.aircraft.wing, self.fs, sp=loadsp)
+            self.aircraft.wing, self.fs, out=loadsp)
         self.winggust = self.aircraft.wing.spar.gustloading(
-            self.aircraft.wing, self.fs, sp=loadsp)
+            self.aircraft.wing, self.fs, out=loadsp)
         self.htailg = self.aircraft.emp.htail.spar.loading(
             self.aircraft.emp.htail, self.fs)
         self.vtailg = self.aircraft.emp.vtail.spar.loading(
