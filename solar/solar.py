@@ -560,10 +560,10 @@ class Climb(Model):
     """
     def density(self, c):
         " find air density "
-        ft2m, alpha = 0.3048, 0.0065 # conversion, K/m
+        alpha = 0.0065 # K/m
         h11k, T11k, p11k, rhosl = 11019, 216.483, 22532, 1.225 #m, K, Pa, kg/m^3
         T0, R, gms, n = 288.16, 287.04, 9.81, 5.2561 #K, m^2/K/s^2, m/s^2, -
-        hrange = [c[self.h]*ft2m*i/(self.N+1)
+        hrange = [c(self.h).to("m").magnitude*i/(self.N+1)
                   for i in range(1, self.N+1)]
         rho = []
         for al in hrange:
