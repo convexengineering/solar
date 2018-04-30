@@ -96,7 +96,7 @@ if __name__ == "__main__":
     cn, err = fit(X, Y, 3, "SMA")
     print "RMS error: %.5f" % err
     df = cn.get_dataframe()
-    df.to_csv("../../dai1336a.csv", index=False)
+    # df.to_csv("../../dai1336a.csv", index=False)
 
     Fs = plot_fits(cn, X, Y)
     for t, F in zip(tau_r["scale"], Fs):
