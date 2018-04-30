@@ -5,7 +5,7 @@ from numpy import array
 def var_table(sols, colns, varks, latns, title, label):
     assert len(sols) == len(colns) - 1
 
-    filename = "%s.generated.tex" % label
+    filename = "./figs/%s.generated.tex" % label
     with open(filename, "w") as f:
         if title:
             f.write("\\caption{%s}\n" % title)

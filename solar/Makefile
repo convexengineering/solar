@@ -3,3 +3,4 @@ all:
 	ipython sens_chart.py ./figs/ GEN
 	ipython npod_trade.py ./figs/ GEN
 	ipython solarlat.py ./figs/ GEN
+	ipython tablegen.py
