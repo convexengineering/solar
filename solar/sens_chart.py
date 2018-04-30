@@ -108,10 +108,10 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    V = Aircraft(Npod=3, sp=True)
-    M = Mission(V, latitude=[15])
+    V = Aircraft(Npod=0, sp=False)
+    M = Mission(V, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
-    sol = M.localsolve("mosek")
+    sol = M.solve("mosek")
 
     vns = {M.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
            M.aircraft.battery.etacharge: "$\\eta_{\\mathrm{charge}}$",
@@ -121,6 +121,6 @@ if __name__ == "__main__":
            "Nmax": "$N_{\\mathrm{max}}$",
            "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
 
-    sd = get_highestsens(M, sol, N=15)
+    sd = get_highestsens(M, sol, N=10)
     f, a = plot_chart(sd)
     f.savefig(path + "sensbar.pdf", bbox_inches="tight")

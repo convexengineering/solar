@@ -1,23 +1,57 @@
 " number of pods trade study "
-from solar import Mission, Aircraft
+# from solar import Mission, Aircraft
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import sys
+from relaxed_constants import relaxed_constants, post_process
 
-def pods(N=[1, 3, 5, 7, 9, 0]):
+def pods(N=[1, 3, 5, 7, 9, 0], Nplot=5):
     "trade number of pods"
     SP = True
     data = {}
     for i in N:
+        from solar import Mission, Aircraft
         Vehicle = Aircraft(Npod=i, sp=SP)
         M = Mission(Vehicle, latitude=[20])
         M.cost = M[M.aircraft.Wtotal]
-        sol = M.localsolve("mosek")
-        data[i] = sol("Wtotal").magnitude
+        try:
+            sol = M.localsolve("mosek")
+            data[i] = sol("Wtotal").magnitude
+        except RuntimeWarning:
+            V2 = Aircraft(Npod=i, sp=SP)
+            M2 = Mission(V2, latitude=[20])
+            M2.cost = M2[M2.aircraft.Wtotal]
+            feas = relaxed_constants(M2)
+            sol2 = feas.localsolve("mosek")
+            vks = post_process(sol2)
+            data[i] = np.NaN if vks else sol2("Wtotal").magnitude
+            M, sol = M2, sol2
+
+        if Nplot == i:
+            plot_shear(M, sol)
 
     df = pd.DataFrame(data, index=[0])
     return df
+
+def plot_shear(model, result):
+    " plot shear and moment diagrams "
+
+    S = result(model.mission[1].winggust.S)
+    m = result(model.mission[1].winggust.M)
+    fig, ax = plt.subplots(2)
+    ax[0].plot(range(20), S)
+    ax[1].plot(range(20), m)
+    ax[0].grid(); ax[1].grid()
+    fig.savefig("shearandmoment.pdf")
+
+    S = result(model.mission[1].wingg.S)
+    m = result(model.mission[1].wingg.M)
+    fig, ax = plt.subplots(2)
+    ax[0].plot(range(20), S)
+    ax[1].plot(range(20), m)
+    ax[0].grid(); ax[1].grid()
+    fig.savefig("shearandmoment2.pdf")
 
 def plot_pods(df):
     " plot pod trade "
@@ -44,7 +78,7 @@ def plot_pods(df):
 
 def test():
     " for unit testing "
-    pods(N=[0])
+    pods(Nplot=100)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -52,7 +86,7 @@ if __name__ == "__main__":
     else:
         path = ""
 
-    GENERATE = False
+    GENERATE = True
 
     if GENERATE:
         DF = pods()

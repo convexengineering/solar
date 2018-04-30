@@ -5,16 +5,16 @@ from os.path import abspath, dirname
 from os import sep
 from numpy import hstack
 import pandas as pd
-import numpy as np
 import gassolar.environment
 from ad.admath import exp
 from gassolar.environment.solar_irradiance import get_Eirr, twi_fits
 from gassolar.environment.wind_speeds import get_month
-from gpkit import Model, parse_variables, Vectorize, Variable
+from gpkit import Model, parse_variables, Vectorize, SignomialsEnabled
 from gpkit.tests.helpers import StdoutCaptured
 from gpkitmodels.GP.aircraft.wing.wing import Wing as WingGP
 from gpkitmodels.SP.aircraft.wing.wing import Wing as WingSP
-from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar
+from gpkitmodels.GP.aircraft.wing.boxspar import BoxSpar as BoxSparGP
+from gpkitmodels.SP.aircraft.wing.boxspar import BoxSpar as BoxSparSP
 from gpkitmodels.GP.aircraft.wing.wing_skin import WingSecondStruct
 from gpkitmodels.GP.aircraft.tail.empennage import Empennage
 from gpkitmodels.GP.aircraft.tail.horizontal_tail import HorizontalTail
@@ -28,6 +28,7 @@ from gpkitmodels.SP.aircraft.prop.propeller import BladeElementProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
+from relaxed_constants import relaxed_constants, post_process
 
 path = dirname(gassolar.environment.__file__)
 
@@ -122,7 +123,7 @@ class AircraftDrag(Model):
 
         self.wing.substitutions[e] = 0.95
         self.wing.substitutions[self.wing.CLstall] = 4
-        
+
         self.wing.substitutions[e] = 0.95
         dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
 
@@ -163,8 +164,8 @@ class Aircraft(Model):
     minvttau    0.09    [-]     minimum vertical tail tau ratio
     minhttau    0.06    [-]     minimum horizontal tail tau ratio
     maxtau      0.144   [-]     maximum wing tau ratio
-    
-    SKIP VERIFICATION 
+
+    SKIP VERIFICATION
 
     Upper Unbounded
     ---------------
@@ -210,27 +211,27 @@ class Aircraft(Model):
         foamhd.substitutions.update({foamhd.rho: 0.03})
         materials = [cfrpud, cfrpfabric, foamhd]
 
-        HorizontalTail.sparModel = BoxSpar
+        HorizontalTail.sparModel = BoxSparGP
         HorizontalTail.fillModel = None
         HorizontalTail.skinModel = WingSecondStruct
-        VerticalTail.sparModel = BoxSpar
+        VerticalTail.sparModel = BoxSparGP
         VerticalTail.fillModel = None
         VerticalTail.skinModel = WingSecondStruct
-        TailBoom.__bases__ = (BoxSpar,)
+        TailBoom.__bases__ = (BoxSparGP,)
         TailBoom.secondaryWeight = True
         self.emp = Empennage(N=5)
         self.solarcells = SolarCells()
         self.battery = Battery()
         if sp:
-            WingSP.sparModel = BoxSpar
+            WingSP.sparModel = BoxSparSP
             WingSP.fillModel = None
             WingSP.skinModel = WingSecondStruct
-            self.wing = WingSP(N=10)
+            self.wing = WingSP(N=20)
         else:
-            WingGP.sparModel = BoxSpar
+            WingGP.sparModel = BoxSparGP
             WingGP.fillModel = None
             WingGP.skinModel = WingSecondStruct
-            self.wing = WingGP(N=10)
+            self.wing = WingGP(N=20)
         self.motor = Motor()
         Propeller.flight_model = ActuatorProp
         self.propeller = Propeller()
@@ -462,23 +463,20 @@ class FlightSegment(Model):
 
         self.aircraft = aircraft
         self.fs = FlightState(latitude=latitude, day=day)
-        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, True)
+        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, False)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
-        if aircraft.Npod is not 0:
-            if aircraft.Npod is not 1:
-                assert self.aircraft.sp
-                loadsp = self.aircraft.sp
-            else:
-                loadsp = False
+        if aircraft.Npod is not 0 and aircraft.Npod is not 1:
+            assert self.aircraft.sp
+            loadsp = self.aircraft.sp
         else:
             loadsp = False
 
         self.wingg = self.aircraft.wing.spar.loading(
-            self.aircraft.wing, self.fs, sp=loadsp)
+            self.aircraft.wing, self.fs, out=loadsp)
         self.winggust = self.aircraft.wing.spar.gustloading(
-            self.aircraft.wing, self.fs, sp=loadsp)
+            self.aircraft.wing, self.fs, out=loadsp)
         self.htailg = self.aircraft.emp.htail.spar.loading(
             self.aircraft.emp.htail, self.fs)
         self.vtailg = self.aircraft.emp.vtail.spar.loading(
@@ -524,17 +522,38 @@ class FlightSegment(Model):
             self.vtailg.W == qne*Sv*CLvmax,
             ]
 
-        if self.aircraft.Npod is not 0:
-            if self.aircraft.Npod is not 1:
-                z0 = Variable("z0", 1e-10, "N", "placeholder zero value")
-                Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
-                ypod = Nwing/((Npod-1)/2 + 1)
-                y0len = ypod-1
-                weight = self.aircraft.battery.W/Npod*self.wingg.Nsafety
-                sout = np.hstack([[z0]*y0len + [weight]]*(Npod/2))
-                sout = list(sout) + [z0]*(Nwing - len(sout) - 1)
-                constraints.extend([sout == self.wingg.Sout,
-                                    sout == self.winggust.Sout])
+        if self.aircraft.Npod is not 0 and self.aircraft.Npod is not 1:
+            Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
+            ypod = Nwing/((Npod-1)/2 + 1)
+            ypods = [ypod*n for n in range(1, (Npod-1)/2+1)]
+            Sgust, Mgust = self.winggust.S, self.winggust.M
+            qgust, Sg, Mg = self.winggust.q, self.wingg.S, self.wingg.M
+            qg = self.wingg.q
+            deta = self.aircraft.wing.planform.deta
+            b = self.aircraft.wing.planform.b
+            weight = self.aircraft.battery.W/Npod*self.wingg.N
+            for i in range(Nwing-1):
+                if i in ypods:
+                    with SignomialsEnabled():
+                        constraints.extend([
+                            Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(b/2)
+                                         * (qgust[i] + qgust[i+1]) - weight),
+                            Sg[i] >= (Sg[i+1] + 0.5*deta[i]*(b/2)
+                                      * (qg[i] + qg[i+1]) - weight),
+                            Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(b/2)
+                                         * (Sgust[i] + Sgust[i+1])),
+                            Mg[i] >= (Mg[i+1] + 0.5*deta[i]*(b/2)
+                                      * (Sg[i] + Sg[i+1]))
+                            ])
+                else:
+                    constraints.extend([
+                        Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(b/2)
+                                     * (qgust[i] + qgust[i+1])),
+                        Sg[i] >= Sg[i+1] + 0.5*deta[i]*(b/2)*(qg[i] + qg[i+1]),
+                        Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(b/2)
+                                     * (Sgust[i] + Sgust[i+1])),
+                        Mg[i] >= Mg[i+1] + 0.5*deta[i]*(b/2)*(Sg[i] + Sg[i+1])
+                        ])
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
 
@@ -643,21 +662,31 @@ class Mission(Model):
 def test():
     " test model for continuous integration "
     v = Aircraft(sp=False)
-    m = Mission(v, latitude=[15])
+    m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
     m.solve()
     v = Aircraft(sp=True)
-    m = Mission(v, latitude=[15])
+    m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
     m.localsolve()
-    v = Aircraft(Npod=5, sp=True)
-    m = Mission(v, latitude=[15])
+    v = Aircraft(Npod=3, sp=True)
+    m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
-    m.localsolve()
+    f = relaxed_constants(M)
+    s = f.localsolve("mosek")
+    post_process(s)
 
 if __name__ == "__main__":
     SP = True
-    Vehicle = Aircraft(Npod=5, sp=SP)
-    M = Mission(Vehicle, latitude=[15])
+    Vehicle = Aircraft(Npod=3, sp=SP)
+    M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
-    sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
+    try:
+        sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
+    except RuntimeWarning:
+        V2 = Aircraft(Npod=3, sp=SP)
+        M2 = Mission(V2, latitude=[20])
+        M2.cost = M2[M2.aircraft.Wtotal]
+        feas = relaxed_constants(M2)
+        sol = feas.localsolve("mosek")
+        vks = post_process(sol)
