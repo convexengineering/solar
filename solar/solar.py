@@ -678,8 +678,8 @@ def test():
     post_process(s)
 
 if __name__ == "__main__":
-    SP = True
-    Vehicle = Aircraft(Npod=3, sp=SP)
+    SP = False
+    Vehicle = Aircraft(Npod=0, sp=SP)
     M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
     try:
