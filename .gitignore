@@ -104,6 +104,7 @@ ENV/
 *.DS_Store
 
 *.generated.csv
+*.generated.tex
 *.pdf
 
 #latex
