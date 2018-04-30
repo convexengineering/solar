@@ -71,7 +71,6 @@ class AircraftDrag(Model):
     mfac        1.05    [-]     drag margin factor
     Pshaft              [hp]    shaft power
     Pavn        200     [W]     avionics power draw
-    Ppay        100     [W]     payload power draw
     Poper               [W]     operating power
     mpower      1.05    [-]     power margin
     T                   [lbf]     thrust
@@ -119,6 +118,7 @@ class AircraftDrag(Model):
         Qmotor = self.motor.Q
         RPMmotor = self.motor.omega
         Pelec = self.motor.Pelec
+        Ppay = static.Ppay
 
 
         self.wing.substitutions[e] = 0.95
@@ -153,6 +153,7 @@ class Aircraft(Model):
     Variables
     ---------
     Wpay        11      [lbf]   payload weight
+    Ppay        100     [W]     payload power draw
     Wavn        22      [lbf]   avionics weight
     Wtotal              [lbf]   aircraft weight
     Wwing               [lbf]   wing weight
@@ -678,7 +679,7 @@ def test():
     post_process(s)
 
 if __name__ == "__main__":
-    SP = False
+    SP = True
     Vehicle = Aircraft(Npod=0, sp=SP)
     M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
