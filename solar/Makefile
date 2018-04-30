@@ -4,3 +4,4 @@ all:
 	ipython npod_trade.py ./figs/ GEN
 	ipython solarlat.py ./figs/ GEN
 	ipython tablegen.py
+	ipython tau_trade.py ./figs/ GEN
