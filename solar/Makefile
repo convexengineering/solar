@@ -6,3 +6,4 @@ all:
 	ipython tablegen.py
 	ipython tau_trade.py ./figs/ GEN
 	ipython battsolarcon.py ./figs/ GEN
+	ipython payloadcon.py ./figs/ GEN
