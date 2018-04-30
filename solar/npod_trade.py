@@ -83,10 +83,10 @@ def test():
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         path = sys.argv[1]
+        GENERATE = True if sys.argv[2] == "GEN" else False
     else:
         path = ""
-
-    GENERATE = True
+        GENERATE = True
 
     if GENERATE:
         DF = pods()

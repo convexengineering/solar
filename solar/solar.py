@@ -262,6 +262,7 @@ class Aircraft(Model):
         self.emp.substitutions[self.emp.vtail.skin.rhoA] = 0.4
         self.emp.substitutions[self.emp.tailboom.wlim] = 1.0
         self.wing.substitutions[self.wing.mfac] = 1.0
+        self.wing.substitutions[self.wing.spar.wlim] = 0.25
         if not sp:
             self.emp.substitutions[Vh] = 0.45
             self.emp.substitutions[self.emp.htail.mh] = 0.1
