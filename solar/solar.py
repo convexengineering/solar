@@ -465,7 +465,10 @@ class FlightSegment(Model):
 
         self.aircraft = aircraft
         self.fs = FlightState(latitude=latitude, day=day)
-        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, True)
+        if self.aircraft.sp:
+            self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, True)
+        else:
+            self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, False)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
