@@ -7,3 +7,4 @@ all:
 	ipython tau_trade.py ./figs/ GEN
 	ipython battsolarcon.py ./figs/ GEN
 	ipython payloadcon.py ./figs/ GEN
+	ipython Nprop_W1_trade.py ./figs/ GEN

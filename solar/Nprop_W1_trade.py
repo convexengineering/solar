@@ -103,10 +103,10 @@ def test():
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         path = sys.argv[1]
+        GENERATE = True if sys.argv[2] == "GEN" else False
     else:
         path = ""
-
-    GENERATE = False
+        GENERATE = False
 
     if GENERATE:
         N = [1,2, 3, 4, 5, 7, 9]
