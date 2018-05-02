@@ -35,7 +35,7 @@ setup(
     author="MIT Convex Engineering",
     author_email="mjburton@mit.edu",
     url="https://www.github.com/convexengineering/solar",
-    install_requires=["numpy", "scipy", "gpkit", "pandas", "gpfit", "gpkitmodels"],
+    install_requires=["numpy", "scipy", "gpkit", "pandas", "gpfit", "gplibrary"],
     version="0.0.0.0",
     packages=["solar"],
     package_data={"solar": ["*.csv"]},
