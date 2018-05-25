@@ -682,7 +682,7 @@ if __name__ == "__main__":
     M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
     try:
-        sol = (M.localsolve("mosek") if SP else M.solve("mosek"))
+        sol = (M.localsolve(verbosity=4) if SP else M.solve())
     except RuntimeWarning:
         V2 = Aircraft(Npod=3, sp=SP)
         M2 = Mission(V2, latitude=[20])
