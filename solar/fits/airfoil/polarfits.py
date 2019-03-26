@@ -77,7 +77,7 @@ def plot_fits(cnstr, x, y):
         c = 0
         for r, cl, cd, fi in zip(exp(x1), x0, y0, yf0):
             ax.plot(exp(cl), exp(cd), "o", mec=colors[c], mfc="none", mew=1.5)
-            ax.plot(exp(cl), exp(fi), c=colors[c], label="Re = %dk" % r, lw=2)
+            ax.plot(exp(cl), exp(fi), c=colors[c], label="Re = %dk" % (round(r/1e4)*10), lw=2)
             c += 1
         ax.set_xlabel("$C_L$")
         ax.set_ylabel("$c_{d_p}$")
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     cn, err = fit(X, Y, 3, "SMA")
     print "RMS error: %.5f" % err
     df = cn.get_dataframe()
-    df.to_csv("../../dai1336a.csv", index=False)
+    # df.to_csv("../../dai1336a.csv", index=False)
 
     Fs = plot_fits(cn, X, Y)
     for t, F in zip(tau_r["scale"], Fs):

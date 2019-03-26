@@ -17,6 +17,8 @@ def get_highestsens(model, res, varnames=None, N=10):
         for vname in varnames:
             sen = res["sensitivities"]["constants"][vname]
             if hasattr(sen, "__len__"):
+                print vname
+                print sen
                 val = max(np.abs(sen.values()))
                 vk = [svk for svk in sen if abs(sen[svk]) == val][0]
                 sen = sum(sen.values())
@@ -118,9 +120,9 @@ if __name__ == "__main__":
            M.aircraft.battery.etadischarge: "$\\eta_{\\mathrm{discharge}}$",
            M.aircraft.battery.hbatt: "$h_{\\mathrm{batt}}$",
            M.aircraft.solarcells.etasolar: "$\\eta_{\\mathrm{solar}}$",
-           "Nmax": "$N_{\\mathrm{max}}$",
-           "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
+           M.mission[1].winggust.Nmax: "$N_{\\mathrm{load}}$",
+           M.mission[1].aircraftPerf.drag.wing.e: "$e$"}
 
-    sd = get_highestsens(M, sol, N=10)
+    sd = get_highestsens(M, sol, vns)
     f, a = plot_chart(sd)
     f.savefig(path + "sensbar.pdf", bbox_inches="tight")

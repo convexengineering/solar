@@ -65,10 +65,10 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1:
         path = sys.argv[1]
+        GENERATE = True if sys.argv[2] == "GEN" else False
     else:
         path = ""
-
-    GENERATE = False
+        GENERATE = True
 
     if GENERATE:
         DF = season(range(20, 30, 2))

@@ -71,7 +71,6 @@ class AircraftDrag(Model):
     mfac        1.05    [-]     drag margin factor
     Pshaft              [hp]    shaft power
     Pavn        200     [W]     avionics power draw
-    Ppay        100     [W]     payload power draw
     Poper               [W]     operating power
     mpower      1.05    [-]     power margin
     T                   [lbf]     thrust
@@ -119,6 +118,7 @@ class AircraftDrag(Model):
         Qmotor = self.motor.Q
         RPMmotor = self.motor.omega
         Pelec = self.motor.Pelec
+        Ppay = static.Ppay
 
 
         self.wing.substitutions[e] = 0.95
@@ -153,6 +153,7 @@ class Aircraft(Model):
     Variables
     ---------
     Wpay        11      [lbf]   payload weight
+    Ppay        100     [W]     payload power draw
     Wavn        22      [lbf]   avionics weight
     Wtotal              [lbf]   aircraft weight
     Wwing               [lbf]   wing weight
@@ -262,6 +263,7 @@ class Aircraft(Model):
         self.emp.substitutions[self.emp.vtail.skin.rhoA] = 0.4
         self.emp.substitutions[self.emp.tailboom.wlim] = 1.0
         self.wing.substitutions[self.wing.mfac] = 1.0
+        self.wing.substitutions[self.wing.spar.wlim] = 0.25
         if not sp:
             self.emp.substitutions[Vh] = 0.45
             self.emp.substitutions[self.emp.htail.mh] = 0.1
@@ -463,7 +465,10 @@ class FlightSegment(Model):
 
         self.aircraft = aircraft
         self.fs = FlightState(latitude=latitude, day=day)
-        self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, False)
+        if self.aircraft.sp:
+            self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, True)
+        else:
+            self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, False)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
 
@@ -678,7 +683,7 @@ def test():
 
 if __name__ == "__main__":
     SP = True
-    Vehicle = Aircraft(Npod=3, sp=SP)
+    Vehicle = Aircraft(Npod=0, sp=SP)
     M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
     try:
