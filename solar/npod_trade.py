@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import sys
 from relaxed_constants import relaxed_constants, post_process
+from subprocess import CalledProcessError
 
 def pods(N=[1, 3, 5, 7, 9, 0], Nplot=5):
     "trade number of pods"
@@ -29,6 +30,9 @@ def pods(N=[1, 3, 5, 7, 9, 0], Nplot=5):
             vks = post_process(sol2)
             data[i] = np.NaN if vks else sol2("Wtotal").magnitude
             M, sol = M2, sol2
+        except CalledProcessError as e:
+            print(e)
+            data[i] = np.NaN  # mosek_cli can't process certain Ns
 
         if Nplot == i:
             plot_shear(M, sol)
