@@ -21,17 +21,21 @@ def pods(N=[1, 3, 5, 7, 9, 0], Nplot=5):
             sol = M.localsolve()
             data[i] = sol("Wtotal").magnitude
         except RuntimeWarning as e:
-            print(e)
-            V2 = Aircraft(Npod=i, sp=SP)
-            M2 = Mission(V2, latitude=[20])
-            M2.cost = M2[M2.aircraft.Wtotal]
-            feas = relaxed_constants(M2)
-            sol2 = feas.localsolve()
-            vks = post_process(sol2)
-            data[i] = np.NaN if vks else sol2("Wtotal").magnitude
-            M, sol = M2, sol2
+            print("rw: %s" % e)
+            try:
+                V2 = Aircraft(Npod=i, sp=SP)
+                M2 = Mission(V2, latitude=[20])
+                M2.cost = M2[M2.aircraft.Wtotal]
+                feas = relaxed_constants(M2)
+                sol2 = feas.localsolve()
+                vks = post_process(sol2)
+                data[i] = np.NaN if vks else sol2("Wtotal").magnitude
+                M, sol = M2, sol2
+            except Exception as e:
+                print("e: %s" % e)
+                data[i] = np.NaN
         except CalledProcessError as e:
-            print(e)
+            print("cpe: %s" % e)
             data[i] = np.NaN  # mosek_cli can't process certain Ns
 
         if Nplot == i:
