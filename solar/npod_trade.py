@@ -11,19 +11,21 @@ def pods(N=[1, 3, 5, 7, 9, 0], Nplot=5):
     SP = True
     data = {}
     for i in N:
+        print("\nN=%i" % i)
         from solar import Mission, Aircraft
         Vehicle = Aircraft(Npod=i, sp=SP)
         M = Mission(Vehicle, latitude=[20])
         M.cost = M[M.aircraft.Wtotal]
         try:
-            sol = M.localsolve("mosek")
+            sol = M.localsolve()
             data[i] = sol("Wtotal").magnitude
-        except RuntimeWarning:
+        except RuntimeWarning as e:
+            print(e)
             V2 = Aircraft(Npod=i, sp=SP)
             M2 = Mission(V2, latitude=[20])
             M2.cost = M2[M2.aircraft.Wtotal]
             feas = relaxed_constants(M2)
-            sol2 = feas.localsolve("mosek")
+            sol2 = feas.localsolve()
             vks = post_process(sol2)
             data[i] = np.NaN if vks else sol2("Wtotal").magnitude
             M, sol = M2, sol2
@@ -81,19 +83,20 @@ def test():
     pods(Nplot=100)
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        path = sys.argv[1]
-    else:
-        path = ""
-
-    GENERATE = True
-
-    if GENERATE:
-        DF = pods()
-        DF.to_csv("pds.generated.csv")
-    else:
-        DF = pd.read_csv("pds.generated.csv")
-        del DF["Unnamed: 0"]
-
-    f, a = plot_pods(DF)
-    f.savefig(path + "npod_trade.pdf", bbox_inches="tight")
+    test()
+    # if len(sys.argv) > 1:
+    #     path = sys.argv[1]
+    #     GENERATE = True if sys.argv[2] == "GEN" else False
+    # else:
+    #     path = ""
+    #     GENERATE = True
+    #
+    # if GENERATE:
+    #     DF = pods()
+    #     DF.to_csv("pds.generated.csv")
+    # else:
+    #     DF = pd.read_csv("pds.generated.csv")
+    #     del DF["Unnamed: 0"]
+    #
+    # f, a = plot_pods(DF)
+    # f.savefig(path + "npod_trade.pdf", bbox_inches="tight")
