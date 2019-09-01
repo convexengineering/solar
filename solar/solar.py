@@ -33,11 +33,9 @@ from relaxed_constants import relaxed_constants, post_process
 path = dirname(gassolar.environment.__file__)
 
 class AircraftPerf(Model):
-    """ Aircaft Performance
-    """
-    def setup(self, static, state, onDesign = False):
-        exec parse_variables(AircraftPerf.__doc__)
+    "Aircaft Performance"
 
+    def setup(self, static, state, onDesign=False):
         self.drag = AircraftDrag(static, state, onDesign)
         self.CD = self.drag.CD
         self.CL = self.drag.CL
@@ -82,9 +80,8 @@ class AircraftDrag(Model):
     cda         CDA
     mfac        m_{\\mathrm{fac}}
     """
-    def setup(self, static, state, onDesign = False):
-        exec parse_variables(AircraftDrag.__doc__)
-
+    @parse_variables(__doc__, globals())
+    def setup(self, static, state, onDesign=False):
         fd = dirname(abspath(__file__)) + sep + "dai1336a.csv"
 
         self.wing = static.wing.flight_model(static.wing, state, fitdata=fd)
@@ -194,10 +191,10 @@ class Aircraft(Model):
     fuseModel = None
     flight_model = AircraftPerf
 
+    @parse_variables(__doc__, globals())
     def setup(self, Npod=0, sp=False):
         self.Npod = Npod
         self.sp = sp
-        exec parse_variables(Aircraft.__doc__)
 
         cfrpud.substitutions.update({cfrpud.rho: 1.5,
                                      cfrpud.E: 200,
@@ -347,8 +344,8 @@ class Battery(Model):
     Volbatt             \\mathcal{V}_{\\mathrm{batt}}
 
     """
+    @parse_variables(__doc__, globals())
     def setup(self):
-        exec parse_variables(Battery.__doc__)
         return [W >= E*minSOC/hbatt/etaRTE/etapack*g,
                 Volbatt >= E/vbatt]
 
@@ -378,8 +375,8 @@ class SolarCells(Model):
     mfac            m_{\\mathrm{fac}}
 
     """
+    @parse_variables(__doc__, globals())
     def setup(self):
-        exec parse_variables(SolarCells.__doc__)
         return [W >= rhosolar*S*g]
 
 
@@ -397,13 +394,13 @@ class FlightState(Model):
     V                       [m/s]       true airspeed
     rho                     [kg/m^3]    air density
     mu          1.42e-5     [N*s/m^2]   viscosity
-    ESirr       self.esirr  [W*hr/m^2]  solar energy
+    ESirr       esirr       [W*hr/m^2]  solar energy
     PSmin                   [W/m^2]     minimum necessary solar power
     ESday                   [W*hr/m^2]  solar cells energy during daytime
     EStwi                   [W*hr/m^2]  twilight required battery energy
     ESvar       1           [W*hr/m^2]  energy units variable
     PSvar       1           [W/m^2]     power units variable
-    tnight      self.tn     [hr]        night duration
+    tnight      tn          [hr]        night duration
     pct         0.9         [-]         percentile wind speeds
     Vwindref    100.0       [m/s]       reference wind speed
     rhoref      1.0         [kg/m^3]    reference air density
@@ -432,9 +429,10 @@ class FlightState(Model):
     mfac        m_{\\mathrm{fac}}
 
     """
-    def setup(self, latitude=45, day=355):
-        self.esirr, _, self.tn, _ = get_Eirr(latitude, day)
-        exec parse_variables(FlightState.__doc__)
+    @parse_variables(__doc__, globals())
+    def setup(self, latitude, day, esirr, tn):
+        self.esirr = esirr
+        self.tn = tn
 
         month = get_month(day)
         df = pd.read_csv(path + sep + "windfits" + month +
@@ -460,9 +458,10 @@ class FlightSegment(Model):
 
         self.latitude = latitude
         self.day = day
+        esirr, _, tn, _ = get_Eirr(latitude, day)
 
         self.aircraft = aircraft
-        self.fs = FlightState(latitude=latitude, day=day)
+        self.fs = FlightState(latitude, day, esirr, tn)
         self.aircraftPerf = self.aircraft.flight_model(aircraft, self.fs, False)
         self.slf = SteadyLevelFlight(self.fs, self.aircraft,
                                      self.aircraftPerf)
@@ -598,9 +597,9 @@ class Climb(Model):
         " find delta altitude "
         return c[self.h]/self.N
 
+    @parse_variables(__doc__, globals())
     def setup(self, N, aircraft):
         self.N = N
-        exec parse_variables(Climb.__doc__)
 
         with Vectorize(self.N):
             self.drag = AircraftDrag(aircraft, self)
