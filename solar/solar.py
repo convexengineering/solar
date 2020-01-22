@@ -672,7 +672,7 @@ def test():
     m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
     f = relaxed_constants(M)
-    s = f.localsolve("mosek")
+    s = f.localsolve()
     post_process(s)
 
 if __name__ == "__main__":

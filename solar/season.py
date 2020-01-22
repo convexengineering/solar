@@ -23,7 +23,7 @@ def season(lats):
             M = Mission(V, latitude=range(1, l+1, 1), day=d)
             M.cost = M[M.aircraft.Wtotal]
             try:
-                sol = M.solve("mosek")
+                sol = M.solve()
                 mtow = sol(M.aircraft.Wtotal).magnitude
                 mtows.append(mtow)
             except RuntimeWarning:
@@ -79,5 +79,3 @@ if __name__ == "__main__":
 
     f, a = plot_season(DF)
     f.savefig(path + "season.pdf", bbox_inches="tight")
-
-

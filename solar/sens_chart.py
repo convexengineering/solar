@@ -94,7 +94,7 @@ def test():
     v = Aircraft(Npod=0, sp=True)
     model = Mission(v, latitude=[20])
     model.cost = model[model.aircraft.Wtotal]
-    result = model.localsolve("mosek")
+    result = model.localsolve()
     _ = get_highestsens(model, result)
 
     vn = {model.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
