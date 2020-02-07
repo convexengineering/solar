@@ -1,4 +1,6 @@
 " run seasonal trade "
+from builtins import zip
+from builtins import range
 import sys
 import numpy as np
 import pandas as pd
@@ -20,7 +22,7 @@ def season(lats):
                 mtows = mtows + [np.nan]*(4-len(mtows))
                 break
             V = Aircraft(sp=False)
-            M = Mission(V, latitude=range(1, l+1, 1), day=d)
+            M = Mission(V, latitude=list(range(1, l+1, 1)), day=d)
             M.cost = M[M.aircraft.Wtotal]
             try:
                 sol = M.solve()
@@ -42,7 +44,7 @@ def plot_season(df):
     colors = ["#014636", "#016c59", "#02818a", "#3690c0", "#67a9cf"]
     mrks = ["o", "v", "D", "^", "s"]
     for d, cl, mk in zip(df, colors, mrks):
-        ax.plot(range(1, 5), df[d], ms=7, lw=2, color=cl, ls="dashed",
+        ax.plot(list(range(1, 5)), df[d], ms=7, lw=2, color=cl, ls="dashed",
                 marker=mk, label="%s$^{\\circ}$ Lat" % d)
 
     ax.set_xlim([0.5, 4.5])
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     GENERATE = False
 
     if GENERATE:
-        DF = season(range(20, 30, 2))
+        DF = season(list(range(20, 30, 2)))
         DF.to_csv("season.generated.csv")
     else:
         DF = pd.read_csv("season.generated.csv")

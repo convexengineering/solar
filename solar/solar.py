@@ -1,6 +1,9 @@
 " Simple Solar-Electric Powered Aircraft Model "
+from __future__ import division
 #pylint: disable=invalid-name, too-many-instance-attributes, too-many-locals
 #pylint: disable=redefined-variable-type, too-many-statements, not-callable
+from builtins import range
+from past.utils import old_div
 from os.path import abspath, dirname
 from os import sep
 from numpy import hstack
@@ -53,7 +56,7 @@ class AircraftPerf(Model):
         PSmin = self.PSmin = state.PSmin
 
         constraints = [
-            ESirr >= (ESday + E/etacharge/etasolar/Ssolar),
+            ESirr >= (ESday + old_div(old_div(old_div(E,etacharge),etasolar),Ssolar)),
             E*etadischarge >= (Poper*tnight + EStwi*etasolar*Ssolar),
             Poper == PSmin*Ssolar*etasolar]
 
@@ -122,7 +125,7 @@ class AircraftDrag(Model):
         self.wing.substitutions[self.wing.CLstall] = 4
 
         self.wing.substitutions[e] = 0.95
-        dvars = [cdht*Sh/Sw, cdvt*Sv/Sw, cftb*Stb/Sw]
+        dvars = [old_div(cdht*Sh,Sw), old_div(cdvt*Sv,Sw), old_div(cftb*Stb,Sw)]
 
         if static.Npod is not 0:
             with Vectorize(static.Npod):
@@ -131,15 +134,15 @@ class AircraftDrag(Model):
             self.flight_models.extend([self.fuse])
             cdfuse = self.fuse.Cd
             Sfuse = static.fuselage.S
-            dvars.extend(cdfuse*Sfuse/Sw)
+            dvars.extend(old_div(cdfuse*Sfuse,Sw))
             self.fuse.substitutions[self.fuse.mfac] = 1.1
 
         constraints = [cda >= sum(dvars),
-                       Tprop == T/Nprop,
+                       Tprop == old_div(T,Nprop),
                        Qmotor == Qprop,
                        RPMmotor == RPMprop,
-                       CD/mfac >= cda + cdw,
-                       Poper/mpower >= Pavn + Ppay + (Pelec*Nprop),
+                       old_div(CD,mfac) >= cda + cdw,
+                       old_div(Poper,mpower) >= Pavn + Ppay + (Pelec*Nprop),
                       ]
 
         return self.flight_models, constraints
@@ -264,8 +267,8 @@ class Aircraft(Model):
             self.emp.substitutions[self.emp.htail.mh] = 0.1
 
         constraints = [Ssolar*mfsolar <= Sw,
-                       Vh <= Sh*lh/Sw/cmac,
-                       Vv <= Sv*lv/Sw/b,
+                       Vh <= old_div(old_div(Sh*lh,Sw),cmac),
+                       Vv <= old_div(old_div(Sv*lv,Sw),b),
                        d0 <= tau*croot,
                        Wland >= fland*Wtotal,
                        vttau >= minvttau,
@@ -288,8 +291,8 @@ class Aircraft(Model):
                 Volbatt <= Volfuse,
                 Wwing >= self.wing.W + self.solarcells.W,
                 Wcent >= (Wpay + Wavn + self.emp.W + self.motor.W*Nprop
-                          + self.fuselage.W[0] + Wbatt/self.Npod),
-                Wtotal/mfac >= (Wpay + Wavn + Wland + Wfuse +
+                          + self.fuselage.W[0] + old_div(Wbatt,self.Npod)),
+                old_div(Wtotal,mfac) >= (Wpay + Wavn + Wland + Wfuse +
                                 sum([c.W for c in self.components]) +
                                 (Nprop)*sum([c.W for c in self.propulsor]))
                 ])
@@ -301,7 +304,7 @@ class Aircraft(Model):
                                             self.solarcells]]),
                 Wcent >= Wpay + Wavn + self.emp.W + self.motor.W*Nprop,
                 Volbatt <= cmac**2*0.5*tau*b,
-                Wtotal/mfac >= (Wpay + Wavn + Wland
+                old_div(Wtotal,mfac) >= (Wpay + Wavn + Wland
                                 + sum([c.W for c in self.components])
                                 + Nprop*sum([c.W for c in self.propulsor]))
                 ])
@@ -346,8 +349,8 @@ class Battery(Model):
     """
     @parse_variables(__doc__, globals())
     def setup(self):
-        return [W >= E*minSOC/hbatt/etaRTE/etapack*g,
-                Volbatt >= E/vbatt]
+        return [W >= old_div(old_div(old_div(E*minSOC,hbatt),etaRTE),etapack)*g,
+                Volbatt >= old_div(E,vbatt)]
 
 class SolarCells(Model):
     """solar cell model
@@ -441,10 +444,10 @@ class FlightState(Model):
         with StdoutCaptured(None):
             dft, dfd = twi_fits(latitude, day, gen=True)
 
-        return [V/mfac >= Vwind,
-                FCS(df, Vwind/Vwindref, [rho/rhoref, pct], name="wind"),
-                FCS(dfd, ESday/ESvar, [PSmin/PSvar]),
-                FCS(dft, EStwi/ESvar, [PSmin/PSvar]),
+        return [old_div(V,mfac) >= Vwind,
+                FCS(df, old_div(Vwind,Vwindref), [old_div(rho,rhoref), pct], name="wind"),
+                FCS(dfd, old_div(ESday,ESvar), [old_div(PSmin,PSvar)]),
+                FCS(dft, old_div(EStwi,ESvar), [old_div(PSmin,PSvar)]),
                 Vne == N*V,
                 qne == 0.5*rho*Vne**2
                ]
@@ -523,35 +526,35 @@ class FlightSegment(Model):
 
         if self.aircraft.Npod is not 0 and self.aircraft.Npod is not 1:
             Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
-            ypod = Nwing/((Npod-1)/2 + 1)
-            ypods = [ypod*n for n in range(1, (Npod-1)/2+1)]
+            ypod = old_div(Nwing,(old_div((Npod-1),2) + 1))
+            ypods = [ypod*n for n in range(1, old_div((Npod-1),2)+1)]
             Sgust, Mgust = self.winggust.S, self.winggust.M
             qgust, Sg, Mg = self.winggust.q, self.wingg.S, self.wingg.M
             qg = self.wingg.q
             deta = self.aircraft.wing.planform.deta
             b = self.aircraft.wing.planform.b
-            weight = self.aircraft.battery.W/Npod*self.wingg.N
+            weight = old_div(self.aircraft.battery.W,Npod)*self.wingg.N
             for i in range(Nwing-1):
                 if i in ypods:
                     with SignomialsEnabled():
                         constraints.extend([
-                            Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(b/2)
+                            Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(old_div(b,2))
                                          * (qgust[i] + qgust[i+1]) - weight),
-                            Sg[i] >= (Sg[i+1] + 0.5*deta[i]*(b/2)
+                            Sg[i] >= (Sg[i+1] + 0.5*deta[i]*(old_div(b,2))
                                       * (qg[i] + qg[i+1]) - weight),
-                            Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(b/2)
+                            Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(old_div(b,2))
                                          * (Sgust[i] + Sgust[i+1])),
-                            Mg[i] >= (Mg[i+1] + 0.5*deta[i]*(b/2)
+                            Mg[i] >= (Mg[i+1] + 0.5*deta[i]*(old_div(b,2))
                                       * (Sg[i] + Sg[i+1]))
                             ])
                 else:
                     constraints.extend([
-                        Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(b/2)
+                        Sgust[i] >= (Sgust[i+1] + 0.5*deta[i]*(old_div(b,2))
                                      * (qgust[i] + qgust[i+1])),
-                        Sg[i] >= Sg[i+1] + 0.5*deta[i]*(b/2)*(qg[i] + qg[i+1]),
-                        Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(b/2)
+                        Sg[i] >= Sg[i+1] + 0.5*deta[i]*(old_div(b,2))*(qg[i] + qg[i+1]),
+                        Mgust[i] >= (Mgust[i+1] + 0.5*deta[i]*(old_div(b,2))
                                      * (Sgust[i] + Sgust[i+1])),
-                        Mg[i] >= Mg[i+1] + 0.5*deta[i]*(b/2)*(Sg[i] + Sg[i+1])
+                        Mg[i] >= Mg[i+1] + 0.5*deta[i]*(old_div(b,2))*(Sg[i] + Sg[i+1])
                         ])
 
         self.submodels = [self.fs, self.aircraftPerf, self.slf, self.loading]
@@ -581,21 +584,21 @@ class Climb(Model):
         alpha = 0.0065 # K/m
         h11k, T11k, p11k, rhosl = 11019, 216.483, 22532, 1.225 #m, K, Pa, kg/m^3
         T0, R, gms, n = 288.16, 287.04, 9.81, 5.2561 #K, m^2/K/s^2, m/s^2, -
-        hrange = [c(self.h).to("m").magnitude*i/(self.N+1)
+        hrange = [old_div(c(self.h).to("m").magnitude*i,(self.N+1))
                   for i in range(1, self.N+1)]
         rho = []
         for al in hrange:
             if al < h11k:
                 T = T0 - alpha*al
-                rho.append(rhosl*(T/T0)**(n-1))
+                rho.append(rhosl*(old_div(T,T0))**(n-1))
             else:
-                p = p11k*exp((h11k - al)*gms/R/T11k)
-                rho.append(p/R/T11k)
+                p = p11k*exp(old_div(old_div((h11k - al)*gms,R),T11k))
+                rho.append(old_div(old_div(p,R),T11k))
         return [rho]
 
     def hstep(self, c):
         " find delta altitude "
-        return c[self.h]/self.N
+        return old_div(c[self.h],self.N)
 
     @parse_variables(__doc__, globals())
     def setup(self, N, aircraft):
@@ -616,8 +619,8 @@ class Climb(Model):
 
         constraints = [
             Wtotal <= 0.5*rho*V**2*CL*S,
-            T >= 0.5*rho*V**2*CD*S + Wtotal*hdot/V,
-            hdot >= dh/dt,
+            T >= 0.5*rho*V**2*CD*S + old_div(Wtotal*hdot,V),
+            hdot >= old_div(dh,dt),
             t >= sum(hstack(dt)),
             E >= sum(hstack(Poper*dt))]
 
@@ -641,7 +644,7 @@ class SteadyLevelFlight(Model):
 
 class Mission(Model):
     "define mission for aircraft"
-    def setup(self, aircraft, latitude=range(1, 21, 1), day=355):
+    def setup(self, aircraft, latitude=list(range(1, 21, 1)), day=355):
 
         self.aircraft = aircraft
         self.mission = []

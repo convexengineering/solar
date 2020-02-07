@@ -17,7 +17,7 @@ def get_highestsens(model, res, varnames=None, N=10):
         for vname in varnames:
             sen = res["sensitivities"]["constants"][vname]
             if hasattr(sen, "__len__"):
-                val = max(np.abs(sen.values()))
+                val = max(np.abs(list(sen.values())))
                 vk = [svk for svk in sen if abs(sen[svk]) == val][0]
                 sen = sum(sen.values())
             else:

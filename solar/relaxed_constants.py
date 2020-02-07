@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import str
 from gpkit.constraints.relax import ConstantsRelaxed
 from gpkit.constraints.bounded import Bounded
 from gpkit import Model
@@ -44,8 +46,8 @@ def post_process(sol):
     bdvars = [d for d in sol.program.varkeys if "Relax" in str(d)
               and "before" not in str(d) and sol(d).magnitude >= 1.001]
     if bdvars:
-        print "GP iteration has relaxed constants"
-        print sol.program.result.table(varkeys)
+        print("GP iteration has relaxed constants")
+        print(sol.program.result.table(varkeys))
 
     return bdvars
 

@@ -1,5 +1,7 @@
 " number of pods trade study "
+from __future__ import print_function
 # from solar import Mission, Aircraft
+from builtins import range
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -50,16 +52,16 @@ def plot_shear(model, result):
     S = result(model.mission[1].winggust.S)
     m = result(model.mission[1].winggust.M)
     fig, ax = plt.subplots(2)
-    ax[0].plot(range(20), S)
-    ax[1].plot(range(20), m)
+    ax[0].plot(list(range(20)), S)
+    ax[1].plot(list(range(20)), m)
     ax[0].grid(); ax[1].grid()
     fig.savefig("shearandmoment.pdf")
 
     S = result(model.mission[1].wingg.S)
     m = result(model.mission[1].wingg.M)
     fig, ax = plt.subplots(2)
-    ax[0].plot(range(20), S)
-    ax[1].plot(range(20), m)
+    ax[0].plot(list(range(20)), S)
+    ax[1].plot(list(range(20)), m)
     ax[0].grid(); ax[1].grid()
     fig.savefig("shearandmoment2.pdf")
 

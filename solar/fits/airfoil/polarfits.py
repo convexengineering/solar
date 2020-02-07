@@ -1,4 +1,7 @@
 "jho1_polarfits.py"
+from __future__ import print_function
+from builtins import zip
+from builtins import range
 import numpy as np
 from numpy import exp
 import pandas as pd
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     X, Y = fit_setup(Re_r, tau_r) # call fit(X, Y, 4, "SMA") to get fit
     np.random.seed(0)
     cn, err = fit(X, Y, 3, "SMA")
-    print "RMS error: %.5f" % err
+    print("RMS error: %.5f" % err)
     df = cn.get_dataframe()
     df.to_csv("../../dai1336a.csv", index=False)
 
