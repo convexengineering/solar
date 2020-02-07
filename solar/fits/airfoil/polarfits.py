@@ -42,14 +42,14 @@ def fit_setup(re_range, tau_range):
     CD = []
     RE = []
     tau = []
-    for i in range(len(tau_range["scale"])):
+    for i in range(len(tau_range)):
         for r in re_range:
-            dataf = text_to_df("dai1336a.%d.ncrit09.Re%dk.pol" % (
-                tau_range["scale"][i], r))
+            dataf = text_to_df("dai1336.ncrit09.t%d.Re%dk.pol" % (
+                tau_range[i], r))
             CL.append(dataf["CL"].values.astype(np.float))
             CD.append(dataf["CD"].values.astype(np.float))
             RE.append([r*1000.0]*len(CL[-1]))
-            tau.append([tau_range["tau"][i]]*len(CL[-1]))
+            tau.append([tau_range[i]/1000]*len(CL[-1]))
 
     u1 = np.hstack(CL)
     u2 = np.hstack(RE)
@@ -91,10 +91,10 @@ def plot_fits(cnstr, x, y):
     return figs
 
 if __name__ == "__main__":
-    Re_r = [125, 150, 200, 300, 400, 500, 600]
-    tau_r = {"scale": [80, 90, 100, 105],
-             "tau": [0.1094, 0.1231, 0.13682, 0.146]}
-    X, Y = fit_setup(Re_r, tau_r) # call fit(X, Y, 4, "SMA") to get fit
+    re_range = [500, 1000, 1500, 2000, 2500, 3000]
+    tau_range = [50, 75, 100, 125, 150, 175]
+
+    X, Y = fit_setup(re_range, tau_range) # call fit(X, Y, 4, "SMA") to get fit
     np.random.seed(0)
     cn, err = fit(X, Y, 3, "SMA")
     print("RMS error: %.5f" % err)
@@ -102,5 +102,9 @@ if __name__ == "__main__":
     df.to_csv("../../dai1336a.csv", index=False)
 
     Fs = plot_fits(cn, X, Y)
-    for t, F in zip(tau_r["scale"], Fs):
+
+    for i in Fs:
+        i.show()
+
+    for t, F in zip(tau_range, Fs):
         F.savefig("dai1336a.%d.fits.pdf" % t, bbox_inches="tight")
