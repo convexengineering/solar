@@ -36,7 +36,7 @@ def text_to_df(filename):
     df = pd.DataFrame(data)
     return df
 
-def fit_setup(re_range, tau_range):
+def fit_setup(re_range, tau_range, re_ref, tau_ref):
     "set up x and y parameters for gp fitting"
     CL = []
     CD = []
@@ -48,13 +48,24 @@ def fit_setup(re_range, tau_range):
                 tau_range[i], r))
             CL.append(dataf["CL"].values.astype(np.float))
             CD.append(dataf["CD"].values.astype(np.float))
-            RE.append([r*1000.0]*len(CL[-1]))
-            tau.append([tau_range[i]/1000]*len(CL[-1]))
+            RE.append([r/re_ref]*len(CL[-1]))
+            tau.append([tau_range[i]/tau_ref]*len(CL[-1]))
 
     u1 = np.hstack(CL)
     u2 = np.hstack(RE)
     u3 = np.hstack(tau)
     w = np.hstack(CD)
+    # Filtering data
+    rm_inds = []
+    for i in range(len(w)):
+        if w[i] == 0:
+            rm_inds.append(i)
+    def delete_and_return(d_array, inds):
+        new_array = []
+        for i in range(len(d_array)):
+            new_array.append(np.delete(d_array[i], inds))
+        return new_array
+    [u1,u2,u3,w] = delete_and_return([u1,u2,u3,w], rm_inds)
     u = [u1, u2, u3]
     x = np.log(u)
     y = np.log(w)
@@ -84,7 +95,8 @@ def plot_fits(cnstr, x, y):
             c += 1
         ax.set_xlabel("$C_L$")
         ax.set_ylabel("$c_{d_p}$")
-        ax.set_title("$\\tau = %.2f$" % exp(x2[i-1]))
+        thick = 0.12*exp(x2[i-1])
+        ax.set_title("$\\tau = %.2f$" % thick)
         ax.legend(loc=2)
         ax.grid()
         figs.append(fig)
@@ -92,9 +104,12 @@ def plot_fits(cnstr, x, y):
 
 if __name__ == "__main__":
     re_range = [500, 1000, 1500, 2000, 2500, 3000]
-    tau_range = [50, 75, 100, 125, 150, 175]
+    tau_range = [100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230]
 
-    X, Y = fit_setup(re_range, tau_range) # call fit(X, Y, 4, "SMA") to get fit
+    re_ref = 1500
+    tau_ref = 120
+
+    X, Y = fit_setup(re_range, tau_range, re_ref, tau_ref) # call fit(X, Y, 4, "SMA") to get fit
     np.random.seed(0)
     cn, err = fit(X, Y, 3, "SMA")
     print("RMS error: %.5f" % err)
@@ -103,8 +118,8 @@ if __name__ == "__main__":
 
     Fs = plot_fits(cn, X, Y)
 
-    for i in Fs:
-        i.show()
+    # for i in Fs:
+    #     i.show()
 
     for t, F in zip(tau_range, Fs):
         F.savefig("dai1336a.%d.fits.pdf" % t, bbox_inches="tight")

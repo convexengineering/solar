@@ -10,13 +10,14 @@ load $1.dat
 gdes
 tset $2e-3
 
+eXec
 
 oper
 v $3e3
 pacc 
 $POLARFILE
 
-iter 200
+iter 100
 aseq -3 11 1
 
 quit
