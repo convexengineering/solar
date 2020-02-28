@@ -524,7 +524,7 @@ class FlightSegment(Model):
         if self.aircraft.Npod is not 0 and self.aircraft.Npod is not 1:
             Nwing, Npod = self.aircraft.wing.N, self.aircraft.Npod
             ypod = Nwing/((Npod-1)/2 + 1)
-            ypods = [ypod*n for n in range(1, (Npod-1)/2+1)]
+            ypods = [ypod*n for n in range(1, (Npod-1)//2 + 1)]
             Sgust, Mgust = self.winggust.S, self.winggust.M
             qgust, Sg, Mg = self.winggust.q, self.wingg.S, self.wingg.M
             qg = self.wingg.q

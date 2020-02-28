@@ -44,8 +44,7 @@ def post_process(sol):
     bdvars = [d for d in sol.program.varkeys if "Relax" in str(d)
               and "before" not in str(d) and sol(d).magnitude >= 1.001]
     if bdvars:
-        print "GP iteration has relaxed constants"
-        print sol.program.result.table(varkeys)
+        print("GP iteration has relaxed constants")
+        print(sol.program.result.table(varkeys))
 
     return bdvars
-
