@@ -7,10 +7,9 @@ from solar import Mission, Aircraft
 
 #pylint: disable=invalid-name
 
-def season(lats):
+def season(lats, days=[80, 52, 21, 355]):
     " trade seasonal availibility with weight "
-    days = [80, 52, 21, 355]
-
+    V = Aircraft(sp=False)
     data = {}
     for l in lats:
         failed = False
@@ -19,7 +18,6 @@ def season(lats):
             if failed:
                 mtows = mtows + [np.nan]*(4-len(mtows))
                 break
-            V = Aircraft(sp=False)
             M = Mission(V, latitude=range(1, l+1, 1), day=d)
             M.cost = M[M.aircraft.Wtotal]
             try:
@@ -59,23 +57,23 @@ def plot_season(df):
 
 def test():
     "setup for integrated testing"
-    _ = season([20])
+    _ = season(lats=[20], days=[355])
 
 if __name__ == "__main__":
-
-    if len(sys.argv) > 1:
-        path = sys.argv[1]
-    else:
-        path = ""
-
-    GENERATE = False
-
-    if GENERATE:
-        DF = season(range(20, 30, 2))
-        DF.to_csv("season.generated.csv")
-    else:
-        DF = pd.read_csv("season.generated.csv")
-        del DF["Unnamed: 0"]
-
-    f, a = plot_season(DF)
-    f.savefig(path + "season.pdf", bbox_inches="tight")
+    test()
+    # if len(sys.argv) > 1:
+    #     path = sys.argv[1]
+    # else:
+    #     path = ""
+    #
+    # GENERATE = False
+    #
+    # if GENERATE:
+    #     DF = season(range(20, 30, 2))
+    #     DF.to_csv("season.generated.csv")
+    # else:
+    #     DF = pd.read_csv("season.generated.csv")
+    #     del DF["Unnamed: 0"]
+    #
+    # f, a = plot_season(DF)
+    # f.savefig(path + "season.pdf", bbox_inches="tight")
