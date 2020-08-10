@@ -94,7 +94,7 @@ def test():
     v = Aircraft(Npod=0, sp=True)
     model = Mission(v, latitude=[20])
     model.cost = model[model.aircraft.Wtotal]
-    result = model.localsolve("mosek")
+    result = model.localsolve()
     _ = get_highestsens(model, result)
 
     vn = {model.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
@@ -102,25 +102,25 @@ def test():
     _ = get_highestsens(model, result, vn)
 
 if __name__ == "__main__":
-
-    if len(sys.argv) > 1:
-        path = sys.argv[1]
-    else:
-        path = ""
-
-    V = Aircraft(Npod=0, sp=False)
-    M = Mission(V, latitude=[20])
-    M.cost = M[M.aircraft.Wtotal]
-    sol = M.solve("mosek")
-
-    vns = {M.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
-           M.aircraft.battery.etacharge: "$\\eta_{\\mathrm{charge}}$",
-           M.aircraft.battery.etadischarge: "$\\eta_{\\mathrm{discharge}}$",
-           M.aircraft.battery.hbatt: "$h_{\\mathrm{batt}}$",
-           M.aircraft.solarcells.etasolar: "$\\eta_{\\mathrm{solar}}$",
-           "Nmax": "$N_{\\mathrm{max}}$",
-           "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
-
-    sd = get_highestsens(M, sol, N=10)
-    f, a = plot_chart(sd)
-    f.savefig(path + "sensbar.pdf", bbox_inches="tight")
+    test()
+    # if len(sys.argv) > 1:
+    #     path = sys.argv[1]
+    # else:
+    #     path = ""
+    #
+    # V = Aircraft(Npod=0, sp=False)
+    # M = Mission(V, latitude=[20])
+    # M.cost = M[M.aircraft.Wtotal]
+    # sol = M.solve("mosek")
+    #
+    # vns = {M.aircraft.Wpay: "$W_{\\mathrm{pay}}$",
+    #        M.aircraft.battery.etacharge: "$\\eta_{\\mathrm{charge}}$",
+    #        M.aircraft.battery.etadischarge: "$\\eta_{\\mathrm{discharge}}$",
+    #        M.aircraft.battery.hbatt: "$h_{\\mathrm{batt}}$",
+    #        M.aircraft.solarcells.etasolar: "$\\eta_{\\mathrm{solar}}$",
+    #        "Nmax": "$N_{\\mathrm{max}}$",
+    #        "e": "$e$", "etaprop": "$\\eta_{\\mathrm{prop}}$"}
+    #
+    # sd = get_highestsens(M, sol, N=10)
+    # f, a = plot_chart(sd)
+    # f.savefig(path + "sensbar.pdf", bbox_inches="tight")
