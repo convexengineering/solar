@@ -28,7 +28,7 @@ from gpkitmodels.SP.aircraft.prop.propeller import BladeElementProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
-from relaxed_constants import relaxed_constants, post_process
+from .relaxed_constants import relaxed_constants, post_process
 
 path = dirname(gassolar.environment.__file__)
 
@@ -656,7 +656,7 @@ class Mission(Model):
                 self.mission.append(FlightSegment(self.aircraft, l,
                                                   355 - 10 - day))
 
-        return self.mission, self.aircraft
+        return self.aircraft, self.mission
 
 def test():
     " test model for continuous integration "
@@ -680,12 +680,4 @@ if __name__ == "__main__":
     Vehicle = Aircraft(Npod=3, sp=SP)
     M = Mission(Vehicle, latitude=[20])
     M.cost = M[M.aircraft.Wtotal]
-    try:
-        sol = (M.localsolve(verbosity=4) if SP else M.solve())
-    except RuntimeWarning:
-        V2 = Aircraft(Npod=3, sp=SP)
-        M2 = Mission(V2, latitude=[20])
-        M2.cost = M2[M2.aircraft.Wtotal]
-        feas = relaxed_constants(M2)
-        sol = feas.localsolve("mosek")
-        vks = post_process(sol)
+    sol = (M.localsolve("mosek_cli") if SP else M.solve("mosek_cli"))
