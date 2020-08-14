@@ -49,7 +49,7 @@ def get_highestsens(model, res, varnames=None, N=10):
             uts = ""
 
         lbl = vk.descr["label"]
-        labels.append(lbl + "$ =%.2f$ %s" % (val, uts.replace("*", "")))
+        labels.append(lbl + "$ =%.2f$ %s" % (val.magnitude, uts.replace("*", "")))
         if s[1] > 0:
             pss.append(s[1])
             ngs.append(0)

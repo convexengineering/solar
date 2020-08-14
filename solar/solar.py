@@ -28,7 +28,6 @@ from gpkitmodels.SP.aircraft.prop.propeller import BladeElementProp
 from gpkitmodels.GP.aircraft.motor.motor import Motor
 from gpkitmodels import g
 from gpfit.fit_constraintset import FitCS as FCS
-from .relaxed_constants import relaxed_constants, post_process
 
 path = dirname(gassolar.environment.__file__)
 
@@ -671,9 +670,6 @@ def test():
     v = Aircraft(Npod=3, sp=True)
     m = Mission(v, latitude=[20])
     m.cost = m[m.aircraft.Wtotal]
-    f = relaxed_constants(M)
-    s = f.localsolve()
-    post_process(s)
 
 if __name__ == "__main__":
     SP = True
